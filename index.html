@@ -9,6 +9,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./barcode.css">
 </head>
 <body>
   <header class="topbar">
@@ -34,6 +35,7 @@
       <div class="section-heading"><div><p class="step">02</p><h2 data-i18n="addMaterial">Добавить материал</h2></div><button id="openCatalogBtn" class="quiet" data-i18n="savedCatalog">Сохранённый каталог</button></div>
       <form id="itemForm" class="material-form">
         <label class="wide"><span data-i18n="material">Материал</span><input id="itemName" required list="materials" data-i18n-placeholder="materialPlaceholder" placeholder="Регипс, шпаклёвка, краска…"><datalist id="materials"></datalist></label>
+        <label><span data-i18n="productCode">Код товара / штрихкод</span><input id="itemCode" inputmode="numeric" autocomplete="off" data-i18n-placeholder="codePlaceholder" placeholder="Например, 68524992"></label>
         <label><span data-i18n="quantity">Количество</span><input id="itemQty" required type="number" inputmode="decimal" min="0.01" step="0.01" value="1"></label>
         <label><span data-i18n="unit">Единица</span><select id="itemUnit"><option value="pcs" data-i18n="pcs">шт.</option><option value="pack" data-i18n="pack">уп.</option><option value="kg">кг</option><option value="l">л</option><option value="m">м</option><option value="m2">м²</option></select></label>
         <label class="wide"><span data-i18n="depoLink">Ссылка на товар DEPO (необязательно)</span><input id="itemLink" type="url" inputmode="url" placeholder="https://online.depo.lv/..."></label>
