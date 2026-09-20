@@ -1,69 +1,9 @@
-<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#173b34">
-  <meta name="description" content="KREDOS — заказы строительных материалов по объектам">
-  <title>KREDOS · Материалы</title>
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css">
-  <link rel="stylesheet" href="./barcode.css">
-</head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="#" aria-label="KREDOS"><span class="brand-mark">K</span><span>KREDOS</span></a>
-    <label class="language"><span data-i18n="language">Язык</span><select id="languageSelect" aria-label="Язык"><option value="ru">RU</option><option value="lv">LV</option><option value="uk">UA</option></select></label>
-  </header>
-
-  <main class="shell">
-    <section class="hero">
-      <div><p class="eyebrow" data-i18n="workspace">Рабочий список</p><h1 data-i18n="title">Материалы для объекта</h1><p data-i18n="subtitle">Соберите заказ, сохраните его и отправьте поставщику.</p></div>
-      <div class="hero-number"><span id="itemCount">0</span><small data-i18n="positions">позиций</small></div>
-    </section>
-
-    <section class="panel object-panel">
-      <div class="section-heading"><div><p class="step">01</p><h2 data-i18n="object">Объект</h2></div><button id="newOrderBtn" class="quiet" data-i18n="newOrder">Новый заказ</button></div>
-      <div class="grid two">
-        <label><span data-i18n="objectAddress">Адрес объекта</span><input id="objectAddress" autocomplete="street-address" data-i18n-placeholder="addressPlaceholder" placeholder="Например, Brīvības iela 120, Rīga"></label>
-        <label><span data-i18n="orderName">Название заказа</span><input id="orderName" data-i18n-placeholder="orderPlaceholder" placeholder="Материалы для перегородок"></label>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="section-heading"><div><p class="step">02</p><h2 data-i18n="addMaterial">Добавить материал</h2></div><button id="openCatalogBtn" class="quiet" data-i18n="savedCatalog">Сохранённый каталог</button></div>
-      <form id="itemForm" class="material-form">
-        <label class="wide"><span data-i18n="material">Материал</span><input id="itemName" required list="materials" data-i18n-placeholder="materialPlaceholder" placeholder="Регипс, шпаклёвка, краска…"><datalist id="materials"></datalist></label>
-        <label><span data-i18n="productCode">Код товара / штрихкод</span><input id="itemCode" inputmode="numeric" autocomplete="off" data-i18n-placeholder="codePlaceholder" placeholder="Например, 68524992"></label>
-        <label><span data-i18n="quantity">Количество</span><input id="itemQty" required type="number" inputmode="decimal" min="0.01" step="0.01" value="1"></label>
-        <label><span data-i18n="unit">Единица</span><select id="itemUnit"><option value="pcs" data-i18n="pcs">шт.</option><option value="pack" data-i18n="pack">уп.</option><option value="kg">кг</option><option value="l">л</option><option value="m">м</option><option value="m2">м²</option></select></label>
-        <label class="wide"><span data-i18n="depoLink">Ссылка на товар DEPO (необязательно)</span><input id="itemLink" type="url" inputmode="url" placeholder="https://online.depo.lv/..."></label>
-        <label><span data-i18n="price">Цена за единицу</span><input id="itemPrice" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></label>
-        <button class="primary add-button" type="submit" data-i18n="add">Добавить</button>
-      </form>
-    </section>
-
-    <section class="panel order-panel">
-      <div class="section-heading"><div><p class="step">03</p><h2 data-i18n="order">Заказ</h2></div><strong id="total">€0.00</strong></div>
-      <div id="emptyState" class="empty"><div class="empty-icon">+</div><h3 data-i18n="emptyTitle">Список пока пуст</h3><p data-i18n="emptyText">Добавьте первый материал выше.</p></div>
-      <div id="itemsList" class="items" aria-live="polite"></div>
-      <div class="actions">
-        <button id="saveBtn" class="primary" data-i18n="save">Сохранить на устройстве</button>
-        <button id="csvBtn" class="secondary" data-i18n="downloadCsv">Скачать CSV</button>
-        <button id="printBtn" class="secondary" data-i18n="printPdf">Печать / PDF</button>
-        <button id="shareBtn" class="secondary" data-i18n="share">Отправить</button>
-      </div>
-      <p id="status" class="status" role="status"></p>
-    </section>
-  </main>
-
-  <dialog id="catalogDialog">
-    <div class="dialog-head"><div><p class="step">KREDOS</p><h2 data-i18n="catalog">Сохранённый каталог</h2></div><button id="closeCatalogBtn" class="icon-btn" aria-label="Закрыть">×</button></div>
-    <p data-i18n="catalogHelp">Нажмите на товар, чтобы добавить его в форму.</p>
-    <div id="catalogList" class="catalog-list"></div>
-  </dialog>
-
-  <script src="./app.js"></script>
-</body>
-</html>
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#173b34"><meta name="description" content="KREDOS — списки строительных материалов"><title>KREDOS · Материалы</title><link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icons/icon.svg" type="image/svg+xml"><link rel="stylesheet" href="./styles.css"></head><body>
+<header class="topbar"><a class="brand" href="#"><span class="brand-mark">K</span><span>KREDOS</span></a><div class="top-actions"><button id="soundBtn" class="top-btn" aria-label="Звук">🔊</button><button id="installBtn" class="top-btn" data-i18n="install">Установить</button><select id="languageSelect" aria-label="Язык"><option value="ru">RU</option><option value="lv">LV</option><option value="uk">UA</option></select></div></header>
+<main class="shell">
+<section class="hero"><div><p class="eyebrow" data-i18n="workspace">ЗАКАЗ МАТЕРИАЛОВ</p><h1 data-i18n="title">Список для объекта</h1></div><div class="counter"><strong id="itemCount">0</strong><span data-i18n="positions">позиций</span></div></section>
+<section class="panel"><div class="heading"><span class="step">01</span><h2 data-i18n="object">Объект</h2></div><div class="grid two"><label><span data-i18n="address">Адрес объекта</span><input id="objectAddress" data-i18n-placeholder="addressPh" placeholder="Brīvības iela 120, Rīga"></label><label><span data-i18n="listName">Название списка</span><input id="orderName" data-i18n-placeholder="listPh" placeholder="Основные материалы"></label></div></section>
+<section class="panel"><div class="heading"><span class="step">02</span><h2 data-i18n="addMaterial">Добавить материал</h2></div><form id="itemForm" class="material-form"><label class="name-field"><span data-i18n="material">Название материала</span><input id="itemName" required data-i18n-placeholder="materialPh" placeholder="Например, регипс"></label><label><span data-i18n="quantity">Количество</span><input id="itemQty" required type="number" inputmode="decimal" min="0.01" step="0.01" value="1"></label><label><span data-i18n="unit">Единица</span><select id="itemUnit"><option value="pcs" data-i18n="pcs">шт.</option><option value="m2">м²</option><option value="m">м</option><option value="kg">кг</option><option value="l">л</option><option value="pack" data-i18n="pack">уп.</option></select></label><label class="code-field"><span data-i18n="code">Код товара / штрихкод</span><input id="itemCode" inputmode="numeric" autocomplete="off" placeholder="68524992"></label><div class="form-actions"><button id="addBtn" class="primary" type="submit" data-i18n="add">Добавить</button><button id="cancelEditBtn" class="secondary" type="button" data-i18n="cancel" hidden>Отмена</button></div></form></section>
+<section class="panel"><div class="heading order-heading"><div><span class="step">03</span><h2 data-i18n="order">Список материалов</h2></div><button id="clearBtn" class="text-danger" data-i18n="clear">Очистить</button></div><div id="emptyState" class="empty"><b data-i18n="emptyTitle">Список пуст</b><span data-i18n="emptyText">Добавляйте материалы один за другим.</span></div><div id="itemsList" class="items" aria-live="polite"></div></section>
+<section class="panel"><div class="heading"><span class="step">04</span><h2 data-i18n="templates">Шаблоны и отправка</h2></div><div class="template-row"><input id="templateName" data-i18n-placeholder="templatePh" placeholder="Название шаблона"><button id="saveTemplateBtn" class="primary" data-i18n="saveTemplate">Сохранить как шаблон</button></div><div id="templatesList" class="templates"></div><div class="actions"><button id="saveBtn" class="secondary" data-i18n="save">Сохранить список</button><button id="whatsappBtn" class="whatsapp" data-i18n="whatsapp">Отправить в WhatsApp</button><button id="printBtn" class="secondary" data-i18n="print">Печать / PDF</button></div><p id="status" class="status" role="status"></p></section>
+</main><script src="./app.js"></script></body></html>
