@@ -1,0 +1,10 @@
+.item-code {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: #edf1ef;
+  color: #294b43;
+  font: 700 12px ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: .06em;
+}
