@@ -41,4 +41,4 @@ node --test tests/catalog.test.cjs
 
 ## Вход, общие заказы и права
 
-Подготовлена интеграция Firebase Auth и Firestore: Google, email с подтверждением, администратор `dshtriters@gmail.com`, назначаемые модераторы. Правила доступа проверены в эмуляторе Firestore. До заполнения `cloud-config.js` и публикации серверных правил вход и общие заказы явно отключены. Инструкция: [cloud/SETUP.md](cloud/SETUP.md).
+Подготовлена интеграция Firebase Auth и Firestore: Google, email с подтверждением, администратор `dshtriters@gmail.com`, назначаемые модераторы. Правила доступа проверены в эмуляторе Firestore. Подключён проект Firebase `kredos-3f3d6`: включены Google и Email/Password, разрешён домен `virus53111.github.io`, база Firestore в `europe-north1`, серверные правила опубликованы. Инструкция: [cloud/SETUP.md](cloud/SETUP.md).
