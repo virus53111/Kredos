@@ -2,8 +2,8 @@ Object.assign(translations.ru, {
  catalog:'Каталог DEPO', catalogNote:'Товары из накладных. Сверьте название и код перед заказом. Каталог сохраняется на этом устройстве.',
  searchCatalog:'Поиск по названию или коду', manageCatalog:'Добавить / изменить товар',
  depoUrl:'Точная ссылка на товар DEPO', invalidUrl:'Укажите ссылку https://online.depo.lv/product/…',
- noLink:'Ссылка DEPO ещё не указана', choose:'В заказ', duplicateCode:'Товар с таким кодом уже есть. Откройте его для редактирования.',
- deleteProduct:'Удалить товар из каталога? Текущий заказ сохранится.',
+ noLink:'Ссылка DEPO ещё не указана', choose:'В заказ', duplicateCode:'Товар с таким кодом уже есть в каталоге.',
+ 
  catalogSaved:'Товар сохранён.', backup:'Скачать каталог', importCatalog:'Загрузить каталог JSON',
  importError:'Не удалось загрузить каталог. Проверьте формат, коды, единицы и ссылки.',
  imported:'Каталог загружен. Совпадающие коды пропущены.', share:'Поделиться PDF',
@@ -14,8 +14,8 @@ Object.assign(translations.lv, {
  catalog:'DEPO katalogs', catalogNote:'Preces no pavadzīmēm. Pirms pasūtīšanas pārbaudiet nosaukumu un kodu. Katalogs glabājas šajā ierīcē.',
  searchCatalog:'Meklēt pēc nosaukuma vai koda', manageCatalog:'Pievienot / rediģēt preci',
  depoUrl:'Precīza DEPO preces saite', invalidUrl:'Norādiet saiti https://online.depo.lv/product/…',
- noLink:'DEPO saite vēl nav norādīta', choose:'Pasūtījumā', duplicateCode:'Prece ar šo kodu jau ir katalogā. Atveriet to rediģēšanai.',
- deleteProduct:'Dzēst preci no kataloga? Pašreizējais pasūtījums saglabāsies.',
+ noLink:'DEPO saite vēl nav norādīta', choose:'Pasūtījumā', duplicateCode:'Prece ar šo kodu jau ir katalogā.',
+ 
  catalogSaved:'Prece saglabāta.', backup:'Lejupielādēt katalogu', importCatalog:'Ielādēt JSON katalogu',
  importError:'Neizdevās ielādēt katalogu. Pārbaudiet formātu, kodus, vienības un saites.',
  imported:'Katalogs ielādēts. Atkārtoti kodi izlaisti.', share:'Kopīgot PDF',
@@ -26,8 +26,8 @@ Object.assign(translations.uk, {
  catalog:'Каталог DEPO', catalogNote:'Товари з накладних. Звірте назву та код перед замовленням. Каталог зберігається на цьому пристрої.',
  searchCatalog:'Пошук за назвою або кодом', manageCatalog:'Додати / змінити товар',
  depoUrl:'Точне посилання на товар DEPO', invalidUrl:'Вкажіть посилання https://online.depo.lv/product/…',
- noLink:'Посилання DEPO ще не вказано', choose:'У замовлення', duplicateCode:'Товар із таким кодом уже є. Відкрийте його для редагування.',
- deleteProduct:'Видалити товар із каталогу? Поточне замовлення збережеться.',
+ noLink:'Посилання DEPO ще не вказано', choose:'У замовлення', duplicateCode:'Товар із таким кодом уже є в каталозі.',
+ 
  catalogSaved:'Товар збережено.', backup:'Завантажити каталог', importCatalog:'Імпортувати каталог JSON',
  importError:'Не вдалося імпортувати каталог. Перевірте формат, коди, одиниці та посилання.',
  imported:'Каталог імпортовано. Повторні коди пропущено.', share:'Поділитися PDF',
@@ -35,9 +35,9 @@ Object.assign(translations.uk, {
  noResults:'Товари не знайдено.'
 });
 const simpleLabels = {
- ru: {settings:'Настройки',simpleTitle:'Составить заказ',simpleHint:'Укажите объект, добавьте материалы и отправьте список.',orderTab:'Заказ',materialsTab:'Мои материалы',whereDelivery:'Куда нужны материалы?',optionalName:'Название заказа — необязательно',chooseMaterials:'Выберите материалы',chooseHint:'Найдите товар, укажите количество и нажмите «Добавить».',searchExample:'Например: Knauf, Caparol или код товара',newProduct:'Новый материал',productDetails:'Данные материала',backupTools:'Перенос и резервная копия',backupHint:'Каталог хранится на этом устройстве. Скачайте копию, чтобы перенести его на другое.',manualMaterial:'Нет нужного товара? Добавить вручную',yourOrder:'Ваш заказ',more:'Ещё',simpleEmpty:'Выберите материалы в списке выше.',sendOrder:'Отправить заказ',autoSaved:'Заказ сохраняется автоматически на этом устройстве.',templatesAndPrint:'Шаблоны и печать',templateHint:'Сохраните набор материалов, чтобы использовать его в следующем заказе.',addedToOrder:'Добавлено в заказ.',manageHint:'Здесь можно добавлять, изменять и удалять товары. Изменения сохраняются автоматически.',editOrderItem:'Изменить материал в заказе',catalog:'Мои материалы',choose:'Добавить',emptyTitle:'Пока ничего не добавлено'},
- lv: {settings:'Iestatījumi',simpleTitle:'Izveidot pasūtījumu',simpleHint:'Norādiet objektu, pievienojiet materiālus un nosūtiet sarakstu.',orderTab:'Pasūtījums',materialsTab:'Mani materiāli',whereDelivery:'Kur vajadzīgi materiāli?',optionalName:'Pasūtījuma nosaukums — nav obligāts',chooseMaterials:'Izvēlieties materiālus',chooseHint:'Atrodiet preci, norādiet daudzumu un nospiediet “Pievienot”.',searchExample:'Piemēram: Knauf, Caparol vai preces kods',newProduct:'Jauns materiāls',productDetails:'Materiāla dati',backupTools:'Pārsūtīšana un rezerves kopija',backupHint:'Katalogs glabājas šajā ierīcē. Lejupielādējiet kopiju, lai pārceltu to uz citu ierīci.',manualMaterial:'Nav vajadzīgās preces? Pievienot manuāli',yourOrder:'Jūsu pasūtījums',more:'Vēl',simpleEmpty:'Izvēlieties materiālus augstāk.',sendOrder:'Nosūtīt pasūtījumu',autoSaved:'Pasūtījums automātiski saglabājas šajā ierīcē.',templatesAndPrint:'Veidnes un druka',templateHint:'Saglabājiet materiālu kopu nākamajam pasūtījumam.',addedToOrder:'Pievienots pasūtījumam.',manageHint:'Šeit var pievienot, rediģēt un dzēst preces. Izmaiņas saglabājas automātiski.',editOrderItem:'Rediģēt pasūtījuma materiālu',catalog:'Mani materiāli',choose:'Pievienot',emptyTitle:'Vēl nekas nav pievienots'},
- uk: {settings:'Налаштування',simpleTitle:'Скласти замовлення',simpleHint:'Вкажіть об’єкт, додайте матеріали та надішліть список.',orderTab:'Замовлення',materialsTab:'Мої матеріали',whereDelivery:'Куди потрібні матеріали?',optionalName:'Назва замовлення — необов’язково',chooseMaterials:'Виберіть матеріали',chooseHint:'Знайдіть товар, вкажіть кількість і натисніть «Додати».',searchExample:'Наприклад: Knauf, Caparol або код товару',newProduct:'Новий матеріал',productDetails:'Дані матеріалу',backupTools:'Перенесення та резервна копія',backupHint:'Каталог зберігається на цьому пристрої. Завантажте копію для перенесення на інший.',manualMaterial:'Немає потрібного товару? Додати вручну',yourOrder:'Ваше замовлення',more:'Ще',simpleEmpty:'Виберіть матеріали зі списку вище.',sendOrder:'Надіслати замовлення',autoSaved:'Замовлення зберігається автоматично на цьому пристрої.',templatesAndPrint:'Шаблони та друк',templateHint:'Збережіть набір матеріалів для наступного замовлення.',addedToOrder:'Додано до замовлення.',manageHint:'Тут можна додавати, змінювати й видаляти товари. Зміни зберігаються автоматично.',editOrderItem:'Змінити матеріал у замовленні',catalog:'Мої матеріали',choose:'Додати',emptyTitle:'Поки нічого не додано'}
+ ru: {settings:'Настройки',simpleTitle:'Составить заказ',simpleHint:'Укажите объект, добавьте материалы и отправьте список.',orderTab:'Заказ',materialsTab:'Мои материалы',whereDelivery:'Куда нужны материалы?',optionalName:'Название заказа — необязательно',chooseMaterials:'Выберите материалы',chooseHint:'Найдите товар, укажите количество и нажмите «Добавить».',searchExample:'Например: Knauf, Caparol или код товара',newProduct:'Новый материал',productDetails:'Данные материала',backupTools:'Перенос и резервная копия',backupHint:'Каталог хранится на этом устройстве. Скачайте копию, чтобы перенести его на другое.',manualMaterial:'Нет нужного товара? Добавить вручную',yourOrder:'Ваш заказ',more:'Ещё',simpleEmpty:'Выберите материалы в списке выше.',sendOrder:'Отправить заказ',autoSaved:'Заказ сохраняется автоматически на этом устройстве.',templatesAndPrint:'Шаблоны и печать',templateHint:'Сохраните набор материалов, чтобы использовать его в следующем заказе.',addedToOrder:'Добавлено в заказ.',manageHint:'Материалы защищены от удаления. Можно только добавлять новые товары.',editOrderItem:'Изменить материал в заказе',catalog:'Мои материалы',choose:'Добавить',emptyTitle:'Пока ничего не добавлено'},
+ lv: {settings:'Iestatījumi',simpleTitle:'Izveidot pasūtījumu',simpleHint:'Norādiet objektu, pievienojiet materiālus un nosūtiet sarakstu.',orderTab:'Pasūtījums',materialsTab:'Mani materiāli',whereDelivery:'Kur vajadzīgi materiāli?',optionalName:'Pasūtījuma nosaukums — nav obligāts',chooseMaterials:'Izvēlieties materiālus',chooseHint:'Atrodiet preci, norādiet daudzumu un nospiediet “Pievienot”.',searchExample:'Piemēram: Knauf, Caparol vai preces kods',newProduct:'Jauns materiāls',productDetails:'Materiāla dati',backupTools:'Pārsūtīšana un rezerves kopija',backupHint:'Katalogs glabājas šajā ierīcē. Lejupielādējiet kopiju, lai pārceltu to uz citu ierīci.',manualMaterial:'Nav vajadzīgās preces? Pievienot manuāli',yourOrder:'Jūsu pasūtījums',more:'Vēl',simpleEmpty:'Izvēlieties materiālus augstāk.',sendOrder:'Nosūtīt pasūtījumu',autoSaved:'Pasūtījums automātiski saglabājas šajā ierīcē.',templatesAndPrint:'Veidnes un druka',templateHint:'Saglabājiet materiālu kopu nākamajam pasūtījumam.',addedToOrder:'Pievienots pasūtījumam.',manageHint:'Materiāli ir aizsargāti pret dzēšanu. Var tikai pievienot jaunas preces.',editOrderItem:'Rediģēt pasūtījuma materiālu',catalog:'Mani materiāli',choose:'Pievienot',emptyTitle:'Vēl nekas nav pievienots'},
+ uk: {settings:'Налаштування',simpleTitle:'Скласти замовлення',simpleHint:'Вкажіть об’єкт, додайте матеріали та надішліть список.',orderTab:'Замовлення',materialsTab:'Мої матеріали',whereDelivery:'Куди потрібні матеріали?',optionalName:'Назва замовлення — необов’язково',chooseMaterials:'Виберіть матеріали',chooseHint:'Знайдіть товар, вкажіть кількість і натисніть «Додати».',searchExample:'Наприклад: Knauf, Caparol або код товару',newProduct:'Новий матеріал',productDetails:'Дані матеріалу',backupTools:'Перенесення та резервна копія',backupHint:'Каталог зберігається на цьому пристрої. Завантажте копію для перенесення на інший.',manualMaterial:'Немає потрібного товару? Додати вручну',yourOrder:'Ваше замовлення',more:'Ще',simpleEmpty:'Виберіть матеріали зі списку вище.',sendOrder:'Надіслати замовлення',autoSaved:'Замовлення зберігається автоматично на цьому пристрої.',templatesAndPrint:'Шаблони та друк',templateHint:'Збережіть набір матеріалів для наступного замовлення.',addedToOrder:'Додано до замовлення.',manageHint:'Матеріали захищені від видалення. Можна лише додавати нові товари.',editOrderItem:'Змінити матеріал у замовленні',catalog:'Мої матеріали',choose:'Додати',emptyTitle:'Поки нічого не додано'}
 };
 for (const language of Object.keys(simpleLabels)) Object.assign(translations[language],simpleLabels[language]);
 let catalogView = false;
@@ -62,19 +62,12 @@ const catalogUnits = ['pcs','pack','m','m2','kg','l'];
 let products;
 try {
  const savedProducts = JSON.parse(localStorage.getItem(catalogKey) || 'null');
- products = Array.isArray(savedProducts) ? Catalog.unique(savedProducts) : Catalog.seed();
+ products = Catalog.restore(savedProducts);
 } catch { products = Catalog.seed(); }
-let productEditId = null;
-function saveProducts() { localStorage.setItem(catalogKey, JSON.stringify(products)); }
+function saveProducts() { products=Catalog.restore(products); localStorage.setItem(catalogKey, JSON.stringify(products)); }
 function catalogStatus(key) { $('catalogStatus').textContent = t(key); }
 function resetProductForm() {
- productEditId = null; $('catalogForm').reset(); $('catalogEditor').open=false; $('catalogStatus').textContent = '';
-}
-function editProduct(p) {
- productEditId = p.id;
- $('catalogName').value = p.name; $('catalogCode').value = p.code;
- $('catalogUnit').value = p.unit; $('catalogUrl').value = p.url || '';
- $('catalogEditor').open = true; $('catalogName').focus();
+ $('catalogForm').reset(); $('catalogEditor').open=false; $('catalogStatus').textContent = '';
 }
 function chooseProduct(p,quantity=1) {
  const qty=Number(quantity);if(!Number.isFinite(qty)||qty<=0)return;
@@ -115,18 +108,6 @@ function renderCatalog() {
      add.onclick=()=>{if(!input.reportValidity())return;chooseProduct(p,input.value);};
      actions.append(label,add);
    }
-   for (const [label,cls,handler] of (catalogView?[
-     ['edit','secondary',()=>editProduct(p)],
-     ['remove','text-danger',()=> {
-       if (!confirm(t('deleteProduct'))) return;
-       products = products.filter(x=>x.id!==p.id);
-       if (productEditId===p.id) resetProductForm();
-       saveProducts(); renderCatalog();
-     }]
-   ]:[])) {
-     const b = document.createElement('button'); b.type='button'; b.className=cls;
-     b.textContent=t(label); b.onclick=handler; actions.appendChild(b);
-   }
    row.append(info,actions); $('catalogList').appendChild(row);
  }
 }
@@ -136,10 +117,9 @@ $('catalogForm').onsubmit = event => {
  const url = Catalog.url($('catalogUrl').value), unit=$('catalogUnit').value;
  if (url===null) return catalogStatus('invalidUrl');
  if (!code || !name) return;
- if (products.some(x=>x.id!==productEditId && x.code===code)) return catalogStatus('duplicateCode');
- const product = {id:productEditId || crypto.randomUUID(),code,name,unit,url};
- const index=products.findIndex(x=>x.id===productEditId);
- if(index>=0) products[index]=product; else products.push(product);
+ if (products.some(x=>x.code===code)) return catalogStatus('duplicateCode');
+ const product = {id:crypto.randomUUID(),code,name,unit,url};
+ products.push(product);
  saveProducts(); resetProductForm(); renderCatalog(); catalogStatus('catalogSaved');
 };
 $('catalogCancel').onclick = resetProductForm;

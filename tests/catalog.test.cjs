@@ -31,29 +31,28 @@ const storage=new Map();const context=vm.createContext({console,URL,Blob,crypto:
 for(const file of ['catalog.js','app.js','catalog-ui.js'])vm.runInContext(fs.readFileSync(require.resolve('../'+file),'utf8'),context);
 const run=s=>vm.runInContext(s,context);
 const submit=el=>el.onsubmit({preventDefault(){}});
-test('catalog CRUD, duplicate protection, persistent deletion and order merge',()=>{
+test('catalog only adds products, blocks duplicates and merges quantities',()=>{
  assert.equal(run('products.length'),36);
- els.catalogName.value='Test';els.catalogCode.value=' TEST ';submit(els.catalogForm);
+ els.catalogName.value='Test';els.catalogCode.value=' TEST ';els.catalogUrl.value='https://online.depo.lv/product/123';submit(els.catalogForm);
  assert.equal(run('products.length'),37);
  els.catalogName.value='Duplicate';els.catalogCode.value='TEST';submit(els.catalogForm);
  assert.equal(run('products.length'),37);
- run("editProduct(products.find(p=>p.code==='TEST'))");els.catalogName.value='Edited';els.catalogUrl.value='https://online.depo.lv/product/123';submit(els.catalogForm);
- assert.equal(run("products.find(p=>p.code==='TEST').name"),'Edited');
+ assert.equal(run("products.find(p=>p.code==='TEST').name"),'Test');
  run("chooseProduct(products.find(p=>p.code==='TEST'),2)");
  run("chooseProduct(products.find(p=>p.code==='TEST'),3)");
  assert.equal(run('items.length'),1);assert.equal(run('items[0].qty'),5);
  assert.ok(run('orderText()').includes('https://online.depo.lv/product/123'));
  run('buildPrint()');assert.equal(els.printRows.children.length,1);
- els.catalogSearch.value='TEST';run('setView(true)');els.catalogList.children[0].children[1].children[1].onclick();
- assert.equal(run('products.length'),36);assert.equal(run('items.length'),1);
- assert.ok(!JSON.parse(storage.get('kredos_catalog_v1')).some(x=>x.code==='TEST'));
+ els.catalogSearch.value='TEST';run('setView(true)');
+ assert.equal(els.catalogList.children[0].children[1].children.length,0);
+ assert.ok(JSON.parse(storage.get('kredos_catalog_v1')).some(x=>x.code==='TEST'));
 });
 test('JSON import merges codes without overwriting edits and rejects unsafe links',async()=>{
  const importData=async data=>els.catalogImport.onchange({target:{files:[{size:100,text:async()=>JSON.stringify(data)}],value:'file'}});
  await importData({products:[{code:'4750614006238',name:'duplicate',unit:'pcs',url:''},{code:'NEW',name:'New product',unit:'pcs',url:''}]});
- assert.equal(run('products.length'),37);assert.ok(run("products.find(p=>p.code==='4750614006238').name").includes('MP75'));
+ assert.equal(run('products.length'),38);assert.ok(run("products.find(p=>p.code==='4750614006238').name").includes('MP75'));
  await importData({products:[{code:'BAD',name:'Unsafe',unit:'pcs',url:'javascript:alert(1)'}]});
- assert.equal(run('products.length'),37);
+ assert.equal(run('products.length'),38);
 });
 
 test('simple order view separates catalogue management and preserves order',()=>{
@@ -68,6 +67,17 @@ test('simple order view separates catalogue management and preserves order',()=>
  assert.equal(run("items.find(x=>x.code==='NEW').qty"),4);
  run('setView(true)');
  assert.equal(els.catalogEditor.hidden,false);assert.equal(els.objectPanel.hidden,true);
- assert.equal(els.catalogList.children[0].children[1].children.length,2);
+ assert.equal(els.catalogList.children[0].children[1].children.length,0);
  run('setView(false)');assert.equal(run("items.find(x=>x.code==='NEW').qty"),4);
+});
+
+test('empty or partial catalogues recover all invoice materials without losing custom data',()=>{
+ assert.equal(Catalog.restore([]).length,36);
+ const first={...Catalog.seed()[0],name:'Existing name',url:'https://online.depo.lv/product/123'};
+ const custom={id:'custom',code:'CUSTOM',name:'Custom material',unit:'pcs',url:''};
+ const restored=Catalog.restore([first,custom]);
+ assert.equal(restored.length,37);assert.equal(restored.find(x=>x.code===first.code).name,'Existing name');
+ assert.equal(restored.find(x=>x.code===first.code).url,first.url);
+ assert.ok(restored.some(x=>x.code==='CUSTOM'));
+ assert.equal(Catalog.restore(restored).length,37);
 });

@@ -59,6 +59,9 @@ const Catalog = {
    }
    return [...byCode.values()];
  },
+ restore(products) {
+   return this.unique([...(Array.isArray(products) ? products : []), ...this.seed()]);
+ },
  seed() {
    return this.unique(invoiceProducts.map(([code,name,unit='pcs']) =>
      ({id:code,code,name,unit,url:''})));
