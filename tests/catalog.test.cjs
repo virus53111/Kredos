@@ -18,7 +18,7 @@ test('deduplication keeps existing edited products; links must be DEPO product c
 class Element{
  constructor(){this.value='';this.children=[];this.dataset={};this.hidden=false;this.className='';}
  append(...nodes){this.children.push(...nodes)} appendChild(x){this.append(x);return x}
- replaceChildren(...nodes){this.children=nodes} focus(){} scrollIntoView(){}
+ replaceChildren(...nodes){this.children=nodes} focus(){} scrollIntoView(){} setAttribute(key,value){this[key]=value} reportValidity(){return Number(this.value)>0}
  set innerHTML(value){this.children=[];this.selectors={};if(value.includes('item-name')){const first=new Element();this.appendChild(first);for(const key of ['.item-name','.item-code','.item-qty','.item-unit','.edit','.delete'])this.selectors[key]=new Element();}}
  querySelector(s){return this.selectors[s]}
  get firstElementChild(){return this.children[0]}
@@ -39,12 +39,12 @@ test('catalog CRUD, duplicate protection, persistent deletion and order merge',(
  assert.equal(run('products.length'),37);
  run("editProduct(products.find(p=>p.code==='TEST'))");els.catalogName.value='Edited';els.catalogUrl.value='https://online.depo.lv/product/123';submit(els.catalogForm);
  assert.equal(run("products.find(p=>p.code==='TEST').name"),'Edited');
- run("chooseProduct(products.find(p=>p.code==='TEST'))");els.itemQty.value='2';submit(els.itemForm);
- run("chooseProduct(products.find(p=>p.code==='TEST'))");els.itemQty.value='3';submit(els.itemForm);
+ run("chooseProduct(products.find(p=>p.code==='TEST'),2)");
+ run("chooseProduct(products.find(p=>p.code==='TEST'),3)");
  assert.equal(run('items.length'),1);assert.equal(run('items[0].qty'),5);
  assert.ok(run('orderText()').includes('https://online.depo.lv/product/123'));
  run('buildPrint()');assert.equal(els.printRows.children.length,1);
- els.catalogSearch.value='TEST';run('renderCatalog()');els.catalogList.children[0].children[1].children[2].onclick();
+ els.catalogSearch.value='TEST';run('setView(true)');els.catalogList.children[0].children[1].children[1].onclick();
  assert.equal(run('products.length'),36);assert.equal(run('items.length'),1);
  assert.ok(!JSON.parse(storage.get('kredos_catalog_v1')).some(x=>x.code==='TEST'));
 });
@@ -54,4 +54,20 @@ test('JSON import merges codes without overwriting edits and rejects unsafe link
  assert.equal(run('products.length'),37);assert.ok(run("products.find(p=>p.code==='4750614006238').name").includes('MP75'));
  await importData({products:[{code:'BAD',name:'Unsafe',unit:'pcs',url:'javascript:alert(1)'}]});
  assert.equal(run('products.length'),37);
+});
+
+test('simple order view separates catalogue management and preserves order',()=>{
+ run('setView(false)');
+ assert.equal(els.catalogEditor.hidden,true);assert.equal(els.catalogBackups.hidden,true);
+ assert.equal(els.objectPanel.hidden,false);assert.equal(els.orderPanel.hidden,false);
+ assert.equal(els.orderViewBtn['aria-pressed'],'true');
+ els.catalogSearch.value='NEW';run('renderCatalog()');
+ const actions=els.catalogList.children[0].children[1];
+ assert.equal(actions.children.length,2);assert.equal(actions.children[1].textContent,'Добавить');
+ actions.children[0].children[1].value='4';actions.children[1].onclick();
+ assert.equal(run("items.find(x=>x.code==='NEW').qty"),4);
+ run('setView(true)');
+ assert.equal(els.catalogEditor.hidden,false);assert.equal(els.objectPanel.hidden,true);
+ assert.equal(els.catalogList.children[0].children[1].children.length,2);
+ run('setView(false)');assert.equal(run("items.find(x=>x.code==='NEW').qty"),4);
 });

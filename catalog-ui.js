@@ -34,6 +34,29 @@ Object.assign(translations.uk, {
  copied:'Список скопійовано. Можна вставити його в повідомлення.', copyFailed:'Не вдалося створити або надіслати PDF. Скористайтеся друком / PDF.',
  noResults:'Товари не знайдено.'
 });
+const simpleLabels = {
+ ru: {settings:'Настройки',simpleTitle:'Составить заказ',simpleHint:'Укажите объект, добавьте материалы и отправьте список.',orderTab:'Заказ',materialsTab:'Мои материалы',whereDelivery:'Куда нужны материалы?',optionalName:'Название заказа — необязательно',chooseMaterials:'Выберите материалы',chooseHint:'Найдите товар, укажите количество и нажмите «Добавить».',searchExample:'Например: Knauf, Caparol или код товара',newProduct:'Новый материал',productDetails:'Данные материала',backupTools:'Перенос и резервная копия',backupHint:'Каталог хранится на этом устройстве. Скачайте копию, чтобы перенести его на другое.',manualMaterial:'Нет нужного товара? Добавить вручную',yourOrder:'Ваш заказ',more:'Ещё',simpleEmpty:'Выберите материалы в списке выше.',sendOrder:'Отправить заказ',autoSaved:'Заказ сохраняется автоматически на этом устройстве.',templatesAndPrint:'Шаблоны и печать',templateHint:'Сохраните набор материалов, чтобы использовать его в следующем заказе.',addedToOrder:'Добавлено в заказ.',manageHint:'Здесь можно добавлять, изменять и удалять товары. Изменения сохраняются автоматически.',editOrderItem:'Изменить материал в заказе',catalog:'Мои материалы',choose:'Добавить',emptyTitle:'Пока ничего не добавлено'},
+ lv: {settings:'Iestatījumi',simpleTitle:'Izveidot pasūtījumu',simpleHint:'Norādiet objektu, pievienojiet materiālus un nosūtiet sarakstu.',orderTab:'Pasūtījums',materialsTab:'Mani materiāli',whereDelivery:'Kur vajadzīgi materiāli?',optionalName:'Pasūtījuma nosaukums — nav obligāts',chooseMaterials:'Izvēlieties materiālus',chooseHint:'Atrodiet preci, norādiet daudzumu un nospiediet “Pievienot”.',searchExample:'Piemēram: Knauf, Caparol vai preces kods',newProduct:'Jauns materiāls',productDetails:'Materiāla dati',backupTools:'Pārsūtīšana un rezerves kopija',backupHint:'Katalogs glabājas šajā ierīcē. Lejupielādējiet kopiju, lai pārceltu to uz citu ierīci.',manualMaterial:'Nav vajadzīgās preces? Pievienot manuāli',yourOrder:'Jūsu pasūtījums',more:'Vēl',simpleEmpty:'Izvēlieties materiālus augstāk.',sendOrder:'Nosūtīt pasūtījumu',autoSaved:'Pasūtījums automātiski saglabājas šajā ierīcē.',templatesAndPrint:'Veidnes un druka',templateHint:'Saglabājiet materiālu kopu nākamajam pasūtījumam.',addedToOrder:'Pievienots pasūtījumam.',manageHint:'Šeit var pievienot, rediģēt un dzēst preces. Izmaiņas saglabājas automātiski.',editOrderItem:'Rediģēt pasūtījuma materiālu',catalog:'Mani materiāli',choose:'Pievienot',emptyTitle:'Vēl nekas nav pievienots'},
+ uk: {settings:'Налаштування',simpleTitle:'Скласти замовлення',simpleHint:'Вкажіть об’єкт, додайте матеріали та надішліть список.',orderTab:'Замовлення',materialsTab:'Мої матеріали',whereDelivery:'Куди потрібні матеріали?',optionalName:'Назва замовлення — необов’язково',chooseMaterials:'Виберіть матеріали',chooseHint:'Знайдіть товар, вкажіть кількість і натисніть «Додати».',searchExample:'Наприклад: Knauf, Caparol або код товару',newProduct:'Новий матеріал',productDetails:'Дані матеріалу',backupTools:'Перенесення та резервна копія',backupHint:'Каталог зберігається на цьому пристрої. Завантажте копію для перенесення на інший.',manualMaterial:'Немає потрібного товару? Додати вручну',yourOrder:'Ваше замовлення',more:'Ще',simpleEmpty:'Виберіть матеріали зі списку вище.',sendOrder:'Надіслати замовлення',autoSaved:'Замовлення зберігається автоматично на цьому пристрої.',templatesAndPrint:'Шаблони та друк',templateHint:'Збережіть набір матеріалів для наступного замовлення.',addedToOrder:'Додано до замовлення.',manageHint:'Тут можна додавати, змінювати й видаляти товари. Зміни зберігаються автоматично.',editOrderItem:'Змінити матеріал у замовленні',catalog:'Мої матеріали',choose:'Додати',emptyTitle:'Поки нічого не додано'}
+};
+for (const language of Object.keys(simpleLabels)) Object.assign(translations[language],simpleLabels[language]);
+let catalogView = false;
+function setView(managing) {
+ catalogView=managing;
+ for(const id of ['objectPanel','manualPanel','orderPanel','sendPanel'])$(id).hidden=managing;
+ for(const id of ['catalogEditor','catalogBackups','catalogAddBtn'])$(id).hidden=!managing;
+ $('catalogStep').hidden=managing;
+ $('orderViewBtn').setAttribute('aria-pressed',String(!managing));
+ $('catalogViewBtn').setAttribute('aria-pressed',String(managing));
+ $('orderViewBtn').className='view-tab'+(!managing?' active':'');
+ $('catalogViewBtn').className='view-tab'+(managing?' active':'');
+ $('screenTitle').textContent=t(managing?'materialsTab':'simpleTitle');
+ $('screenHelp').textContent=t(managing?'manageHint':'simpleHint');
+ $('catalogHeading').textContent=t(managing?'materialsTab':'chooseMaterials');
+ $('catalogHint').textContent=t(managing?'manageHint':'chooseHint');
+ renderCatalog();
+}
+
 const catalogKey = 'kredos_catalog_v1';
 const catalogUnits = ['pcs','pack','m','m2','kg','l'];
 let products;
@@ -45,7 +68,7 @@ let productEditId = null;
 function saveProducts() { localStorage.setItem(catalogKey, JSON.stringify(products)); }
 function catalogStatus(key) { $('catalogStatus').textContent = t(key); }
 function resetProductForm() {
- productEditId = null; $('catalogForm').reset(); $('catalogStatus').textContent = '';
+ productEditId = null; $('catalogForm').reset(); $('catalogEditor').open=false; $('catalogStatus').textContent = '';
 }
 function editProduct(p) {
  productEditId = p.id;
@@ -53,11 +76,13 @@ function editProduct(p) {
  $('catalogUnit').value = p.unit; $('catalogUrl').value = p.url || '';
  $('catalogEditor').open = true; $('catalogName').focus();
 }
-function chooseProduct(p) {
+function chooseProduct(p,quantity=1) {
+ const qty=Number(quantity);if(!Number.isFinite(qty)||qty<=0)return;
  cancelEdit();
- $('itemName').value = p.name; $('itemCode').value = p.code;
- $('itemUnit').value = p.unit; $('itemUrl').value = p.url || '';
- $('itemQty').focus(); $('itemForm').scrollIntoView({behavior:'smooth',block:'center'});
+ $('itemName').value=p.name; $('itemCode').value=p.code;
+ $('itemUnit').value=p.unit; $('itemUrl').value=p.url||''; $('itemQty').value=qty;
+ $('itemForm').onsubmit({preventDefault(){}});
+ catalogStatus('addedToOrder');
 }
 function renderCatalog() {
  const q = $('catalogSearch').value.trim().toLocaleLowerCase();
@@ -76,12 +101,21 @@ function renderCatalog() {
    const url = Catalog.url(p.url);
    if (url) {
      const link = document.createElement('a'); link.href = url; link.target='_blank'; link.rel='noopener'; link.textContent='DEPO ↗'; info.appendChild(link);
-   } else {
+   } else if(catalogView) {
      const note = document.createElement('small'); note.className='missing-link'; note.textContent=t('noLink'); info.appendChild(note);
    }
    const actions = document.createElement('div'); actions.className='catalog-actions';
-   for (const [label,cls,handler] of [
-     ['choose','primary',()=>chooseProduct(p)],
+   if(!catalogView){
+     const label=document.createElement('label');label.className='catalog-quantity';
+     const caption=document.createElement('span');caption.textContent=t('quantity');
+     const input=document.createElement('input');input.type='number';input.min='0.01';input.step='0.01';input.inputMode='decimal';input.value='1';input.required=true;
+     input.setAttribute('aria-label',t('quantity')+': '+p.name);
+     label.append(caption,input);
+     const add=document.createElement('button');add.type='button';add.className='primary';add.textContent=t('choose');
+     add.onclick=()=>{if(!input.reportValidity())return;chooseProduct(p,input.value);};
+     actions.append(label,add);
+   }
+   for (const [label,cls,handler] of (catalogView?[
      ['edit','secondary',()=>editProduct(p)],
      ['remove','text-danger',()=> {
        if (!confirm(t('deleteProduct'))) return;
@@ -89,7 +123,7 @@ function renderCatalog() {
        if (productEditId===p.id) resetProductForm();
        saveProducts(); renderCatalog();
      }]
-   ]) {
+   ]:[])) {
      const b = document.createElement('button'); b.type='button'; b.className=cls;
      b.textContent=t(label); b.onclick=handler; actions.appendChild(b);
    }
@@ -109,6 +143,9 @@ $('catalogForm').onsubmit = event => {
  saveProducts(); resetProductForm(); renderCatalog(); catalogStatus('catalogSaved');
 };
 $('catalogCancel').onclick = resetProductForm;
+$('orderViewBtn').onclick=()=>setView(false);
+$('catalogViewBtn').onclick=()=>setView(true);
+$('catalogAddBtn').onclick=()=>{resetProductForm();$('catalogEditor').open=true;$('catalogName').focus();};
 $('catalogSearch').oninput = renderCatalog;
 $('catalogExport').onclick = () => {
  const url = URL.createObjectURL(new Blob([JSON.stringify({version:1,products},null,2)],{type:'application/json'}));
@@ -146,5 +183,5 @@ $('shareBtn').onclick = async () => {
  finally {button.disabled=false;}
 };
 const originalApplyLanguage=applyLanguage;
-applyLanguage=function(){originalApplyLanguage();renderCatalog();};
+applyLanguage=function(){originalApplyLanguage();setView(catalogView);$('addBtn').textContent=t(editIndex>=0?'update':'add');$('manualSummary').textContent=t(editIndex>=0?'editOrderItem':'manualMaterial');};
 saveProducts(); applyLanguage();
