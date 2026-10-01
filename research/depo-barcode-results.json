@@ -1,0 +1,560 @@
+{
+  "4750614006238": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "1418",
+              "name": "Ģipša mašīnapmetums MP75 Knauf 30kg",
+              "primaryBarcode": "4750614006238",
+              "specificationBarcodes": "4750614006238"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "5907591937607": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "37746",
+              "name": "Zīdaini matēta ūdens dispersijas krāsa iekšdarbiem Caparol 1.25L Samtex 7 B1",
+              "primaryBarcode": "5907591935047",
+              "specificationBarcodes": "5907591935047,4002381708571,4002381860941,5907591937607"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "5903518000591": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "64426",
+              "name": "Akrila hermētiķis TYTAN 310ml Balts",
+              "primaryBarcode": "5903518000591",
+              "specificationBarcodes": "5903518000591,5903518900594"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "4750707022435": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "118175",
+              "name": "Divslāņu LDPE atkritumu maisi Klean 75x115cm/150L/5gab. 55 mikroni",
+              "primaryBarcode": "4750707022435",
+              "specificationBarcodes": "4750707022435"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "5902120000401": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "64116",
+              "name": "Montāžas putas iestrādei ar pistoli TYTAN 750 ml PU-Gun-Foam",
+              "primaryBarcode": "5902120000401",
+              "specificationBarcodes": "5902120000401,2770010029299,5903518044571,5903518058417,5903518051807,5902120000418"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "5905061063948": {
+    "data": {
+      "products": {
+        "edges": []
+      }
+    }
+  },
+  "5905061063672": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "215724",
+              "name": "Veltnīši Eurofaza Hardy Ø6/W100/H13mm 2gab.",
+              "primaryBarcode": "5905061063672",
+              "specificationBarcodes": "5905061063672"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "4820172660033": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "36251",
+              "name": "Automātiskais drošinātājs/ E27 25A",
+              "primaryBarcode": "4750545410036",
+              "specificationBarcodes": "4750545410036,4820172660033"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "4750707006084": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "2791",
+              "name": "Stiklšķiedras lente Spino 50mmX25m balta",
+              "primaryBarcode": "4750707006084",
+              "specificationBarcodes": "4750707006084"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "5905061984069": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "485904",
+              "name": "UV notur.krāsošanas līmlente īpaši precīzām līn. 30mmx33m zila",
+              "primaryBarcode": "5905061984069",
+              "specificationBarcodes": "5905061984069"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "4743307161420": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "64236",
+              "name": "Montāžas līme SpeedFix Clear PENOSIL 290ml caurspīdīga",
+              "primaryBarcode": "4743307161420",
+              "specificationBarcodes": "4743307161420,4743307114174,4743307114037"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "2000000008622": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "478578",
+              "name": "Tekstila maisi putekļsūcējam Karcher WD3 5gab./6.959-130.0 balti",
+              "primaryBarcode": "2000000008622",
+              "specificationBarcodes": "2000000008622"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "2770060124333": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "159238",
+              "name": "Polipropilēna maiss 50x85cm ar zaļu svītru",
+              "primaryBarcode": "2770060124333",
+              "specificationBarcodes": "2770060124333"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "6411512150208": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "1443",
+              "name": "Smalkgraudaina špakteļmasa LH KIILTO 20kg smalka balta",
+              "primaryBarcode": "6411512150208",
+              "specificationBarcodes": "6411512150208,6411512401201"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "2770030043589": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "146992",
+              "name": "Universāla špakteļmasa Masterline 27 kg spainis",
+              "primaryBarcode": "2770030043589",
+              "specificationBarcodes": "2770030043589"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "3606481482297": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "337131",
+              "name": "1-vietīgs rāmis Sedna Design balts",
+              "primaryBarcode": "3606481482297",
+              "specificationBarcodes": "3606481482297"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "3606481482303": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "337142",
+              "name": "2-vietīgs rāmis Sedna Design balts",
+              "primaryBarcode": "3606481482303",
+              "specificationBarcodes": "3606481482303"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "3606481482310": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "337145",
+              "name": "3-vietīgs rāmis Sedna Design balts",
+              "primaryBarcode": "3606481482310",
+              "specificationBarcodes": "3606481482310"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "3606481477934": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "337119",
+              "name": "K-ligzda ar zemējumu z/a Sedna Design bez rāmja balta",
+              "primaryBarcode": "3606481477934",
+              "specificationBarcodes": "3606481477934"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "3606481478023": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "337083",
+              "name": "Slēdzis z/a Sedna Design balts",
+              "primaryBarcode": "3606481478023",
+              "specificationBarcodes": "3606481478023"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "4006415030621": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "38305",
+              "name": "Alkīda emaljas krāsa betonam Super Nova 750ml 7030",
+              "primaryBarcode": "4006415030621",
+              "specificationBarcodes": "4006415030621"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "5907591935054": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "37745",
+              "name": "Zīdaini matēta ūdens dispersijas krāsa iekšdarbiem Caparol 10l Samtex 7 B1",
+              "primaryBarcode": "5907591935054",
+              "specificationBarcodes": "5907591935054,4002381722867,4002381842275,5907591937539"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "5907591935610": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "359856",
+              "name": "Zīdaini matēta krāsa sienām Samtex 10 Caparol 2.5L bāze 1",
+              "primaryBarcode": "5907591935610",
+              "specificationBarcodes": "5907591935610"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "5907697617335": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "580",
+              "name": "Standarta ģipškartona plāksne SMART 1200x2600x12.5mm",
+              "primaryBarcode": "5907697617335",
+              "specificationBarcodes": "5907697617335,2770010055014,5907697607688,5907697607886,5907697605431,5907697617342,5907697646854,5907697646847"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "4750614006153": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "1477",
+              "name": "Elastīga flīžu līme K4 Knauf 25kg Pelēka",
+              "primaryBarcode": "4750614006153",
+              "specificationBarcodes": "4750614006153,4750614003053,4750614004661"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "5902115731679": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "23299",
+              "name": "Iebūv.rāmis ar tualetes podu/skaloš. kasti Morena Cersanit 3/6L",
+              "primaryBarcode": "5902115731679",
+              "specificationBarcodes": "5902115731679"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "4772034009255": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "20602",
+              "name": "Ūdens maisītājs vannai/dušai Uno Rubineta 35 mm melns",
+              "primaryBarcode": "4772034009255",
+              "specificationBarcodes": "4772034009255"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "4772034009309": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "20809",
+              "name": "Ūdens maisītājs vannasistabas izlietnei Uno Rubineta 35 mm melns",
+              "primaryBarcode": "4772034009309",
+              "specificationBarcodes": "4772034009309"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "5905952137093": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "410964",
+              "name": "Iekšējā PVC palodze Vilo 350mm balta",
+              "primaryBarcode": "5905952137093",
+              "specificationBarcodes": "5905952137093,5905952050118"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "5902686957591": {
+    "data": {
+      "products": {
+        "edges": []
+      }
+    }
+  },
+  "5902120010684": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "64118",
+              "name": "Montāžas putas iestrādei ar pistoli Hauser 640ml PU-Gun-Foam STD B3",
+              "primaryBarcode": "5902120010684",
+              "specificationBarcodes": "5902120010684,2770010040126,5903518054167,5902120010691"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "4750707002833": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "91383",
+              "name": "Automašīnu krāsošanas līmlente/7 dienas Folsen 25mmx50m",
+              "primaryBarcode": "4750707002833",
+              "specificationBarcodes": "4750707002833"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "6942629257950": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "75407",
+              "name": "Miglotājs Yardsmith 5L",
+              "primaryBarcode": "6942629257950",
+              "specificationBarcodes": "6942629257950,26942629257954"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "4003982245694": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "1426",
+              "name": "Ģipša špakteļmasa Uniflott knauf 5 kg",
+              "primaryBarcode": "4003982245694",
+              "specificationBarcodes": "4003982245694,4003982162830,4003982200273,4006379019342"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "4779033841152": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "40264",
+              "name": "Universāla dziļi nostiprinoša grunts Base Primer Stimelit 20L",
+              "primaryBarcode": "4779033841152",
+              "specificationBarcodes": "4779033841152"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "5907536351536": {
+    "data": {
+      "products": {
+        "edges": [
+          {
+            "node": {
+              "id": "2746",
+              "name": "Cinkota tērauda stūris 23x23x2500mm cinkots",
+              "primaryBarcode": "5907536351536",
+              "specificationBarcodes": "5907536351536,2770010006078,4750806001539"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

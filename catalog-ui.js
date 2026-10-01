@@ -2,7 +2,7 @@ Object.assign(translations.ru, {
  catalog:'Каталог DEPO', catalogNote:'Товары из накладных. Сверьте название и код перед заказом. Каталог сохраняется на этом устройстве.',
  searchCatalog:'Поиск по названию или коду', manageCatalog:'Добавить / изменить товар',
  depoUrl:'Точная ссылка на товар DEPO', invalidUrl:'Укажите ссылку https://online.depo.lv/product/…',
- noLink:'Ссылка DEPO ещё не указана', choose:'В заказ', duplicateCode:'Товар с таким кодом уже есть в каталоге.',
+ noLink:'Точная карточка DEPO не найдена', viewProduct:'Посмотреть товар в DEPO', choose:'В заказ', duplicateCode:'Товар с таким кодом уже есть в каталоге.',
  
  catalogSaved:'Товар сохранён.', backup:'Скачать каталог', importCatalog:'Загрузить каталог JSON',
  importError:'Не удалось загрузить каталог. Проверьте формат, коды, единицы и ссылки.',
@@ -14,7 +14,7 @@ Object.assign(translations.lv, {
  catalog:'DEPO katalogs', catalogNote:'Preces no pavadzīmēm. Pirms pasūtīšanas pārbaudiet nosaukumu un kodu. Katalogs glabājas šajā ierīcē.',
  searchCatalog:'Meklēt pēc nosaukuma vai koda', manageCatalog:'Pievienot / rediģēt preci',
  depoUrl:'Precīza DEPO preces saite', invalidUrl:'Norādiet saiti https://online.depo.lv/product/…',
- noLink:'DEPO saite vēl nav norādīta', choose:'Pasūtījumā', duplicateCode:'Prece ar šo kodu jau ir katalogā.',
+ noLink:'Precīza DEPO preces lapa nav atrasta', viewProduct:'Apskatīt preci DEPO', choose:'Pasūtījumā', duplicateCode:'Prece ar šo kodu jau ir katalogā.',
  
  catalogSaved:'Prece saglabāta.', backup:'Lejupielādēt katalogu', importCatalog:'Ielādēt JSON katalogu',
  importError:'Neizdevās ielādēt katalogu. Pārbaudiet formātu, kodus, vienības un saites.',
@@ -26,7 +26,7 @@ Object.assign(translations.uk, {
  catalog:'Каталог DEPO', catalogNote:'Товари з накладних. Звірте назву та код перед замовленням. Каталог зберігається на цьому пристрої.',
  searchCatalog:'Пошук за назвою або кодом', manageCatalog:'Додати / змінити товар',
  depoUrl:'Точне посилання на товар DEPO', invalidUrl:'Вкажіть посилання https://online.depo.lv/product/…',
- noLink:'Посилання DEPO ще не вказано', choose:'У замовлення', duplicateCode:'Товар із таким кодом уже є в каталозі.',
+ noLink:'Точну картку DEPO не знайдено', viewProduct:'Переглянути товар у DEPO', choose:'У замовлення', duplicateCode:'Товар із таким кодом уже є в каталозі.',
  
  catalogSaved:'Товар збережено.', backup:'Завантажити каталог', importCatalog:'Імпортувати каталог JSON',
  importError:'Не вдалося імпортувати каталог. Перевірте формат, коди, одиниці та посилання.',
@@ -91,10 +91,10 @@ function renderCatalog() {
    const name = document.createElement('strong'); name.textContent = p.name;
    const code = document.createElement('small'); code.textContent = p.code+' · '+unitLabel(p.unit);
    info.append(name,code);
-   const url = Catalog.url(p.url);
+   const url = Catalog.link(p);
    if (url) {
-     const link = document.createElement('a'); link.href = url; link.target='_blank'; link.rel='noopener'; link.textContent='DEPO ↗'; info.appendChild(link);
-   } else if(catalogView) {
+     const link = document.createElement('a'); link.href = url; link.target='_blank'; link.rel='noopener'; link.textContent=t('viewProduct')+' ↗'; info.appendChild(link);
+   } else {
      const note = document.createElement('small'); note.className='missing-link'; note.textContent=t('noLink'); info.appendChild(note);
    }
    const actions = document.createElement('div'); actions.className='catalog-actions';

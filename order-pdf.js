@@ -59,7 +59,7 @@ async function createOrderPdf(order,labels) {
  startPage();
  for(let i=0;i<order.items.length;i++){
    const item=order.items[i];font(24);const lines=wrap(item.name,570);
-   const url=Catalog.url(item.url);const rowHeight=Math.max(65,lines.length*30+25+(url?30:0));
+   const url=Catalog.link(item);const rowHeight=Math.max(65,lines.length*30+25+(url?30:0));
    if(y+rowHeight>height-110){await finishPage();startPage();}
    ctx.fillStyle='#13221f';font(22);ctx.fillText(String(i+1),margin+12,y+24);
    font(24);lines.forEach((line,n)=>ctx.fillText(line,margin+65,y+24+n*30));

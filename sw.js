@@ -1,4 +1,4 @@
-const CACHE='kredos-v10';
+const CACHE='kredos-v11';
 const ASSETS=['./','./index.html','./styles.css','./print.css','./app.js','./cloud-config.js','./cloud.js','./catalog.js','./catalog-ui.js','./order-pdf.js','./manifest.webmanifest','./icons/icon.svg','./icons/icon-192.png','./icons/icon-512.png','./icons/apple-touch-icon.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS))));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key))))));

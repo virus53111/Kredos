@@ -63,7 +63,7 @@ function renderDetail(order){
   const code=document.createElement('small');code.textContent=item.code||'';
   const quantity=document.createElement('span');quantity.textContent=item.qty+' '+unitLabel(item.unit);
   const info=document.createElement('div');info.append(name,code);
-  const url=Catalog.url(item.url);if(url){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.textContent='DEPO ↗';info.append(a);}
+  const url=Catalog.link(item);if(url){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.textContent=t('viewProduct')+' ↗';info.append(a);}
   row.append(info,quantity);$('cloudDetailItems').append(row);
  }
 }

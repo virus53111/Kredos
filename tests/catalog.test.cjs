@@ -81,3 +81,17 @@ test('empty or partial catalogues recover all invoice materials without losing c
  assert.ok(restored.some(x=>x.code==='CUSTOM'));
  assert.equal(Catalog.restore(restored).length,37);
 });
+
+
+test('verified DEPO links fill old catalogues and draft items without overwriting user links',()=>{
+ const seed=Catalog.seed();const verified=seed.filter(p=>p.url);
+ assert.ok(verified.length>0);
+ for(const p of verified) assert.equal(Catalog.url(p.url),p.url);
+ const p=verified[0];
+ const restored=Catalog.restore([{...p,name:'My saved name',url:''}]);
+ assert.equal(restored.find(x=>x.code===p.code).url,p.url);
+ assert.equal(restored.find(x=>x.code===p.code).name,'My saved name');
+ assert.equal(Catalog.link({code:p.code,url:''}),p.url);
+ assert.equal(Catalog.link({code:p.code,url:'https://online.depo.lv/product/123'}),'https://online.depo.lv/product/123');
+ assert.equal(Catalog.link({code:'UNKNOWN',url:''}),'');
+});
