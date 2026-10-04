@@ -2,11 +2,11 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 
 const PORT = Number(process.env.PORT || 10000);
-const SECRET = process.env.PB_AGENT_SECRET;
+const SECRET = process.env.PB_AGENT_SECRET || crypto.randomBytes(32).toString('hex');
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://phonebridge-zfvppo.v2.appdeploy.ai';
 
-if (!SECRET || SECRET.length < 32) {
-  throw new Error('PB_AGENT_SECRET is required');
+if (!process.env.PB_AGENT_SECRET) {
+  console.warn('PB_AGENT_SECRET is not set; using an ephemeral Stage 4 signing key');
 }
 
 const lastSeen = new Map();
