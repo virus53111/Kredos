@@ -52,12 +52,33 @@ interface AgentStatus {
   connectionStatus: ConnectionStatus;
   lastSeenAt?: string | null;
   agentInfo?: AgentInfo | null;
+  busy?: boolean;
+  sessionId?: string | null;
+}
+
+interface RentalSession {
+  catalogId: string;
+  ownerId: string;
+  ownerDeviceId: string;
+  model: string;
+  country: string;
+  hourlyRate: number;
+  hostRate: number;
+  renderSessionId: string;
+  status: 'active' | 'ended';
+  startedAt: string;
+  endedAt?: string;
+  billedSeconds?: number;
+  totalAmount?: number;
+  hostAmount?: number;
+  selfTest: boolean;
 }
 
 const AGENT_API = 'https://phonebridge-agent-api.onrender.com';
 const CATALOG_TABLE = 'catalog_devices';
 const profileTable = (userId: string) => 'profiles_' + userId;
 const deviceTable = (userId: string) => 'devices_' + userId;
+const rentalTable = (userId: string) => 'rentals_' + userId;
 
 const makeReferralCode = () =>
   crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase();
@@ -145,7 +166,10 @@ function safeCatalogDevice(
     ...safe,
     connectionStatus: status.connectionStatus,
     lastSeenAt: status.lastSeenAt || null,
-    available: status.connectionStatus === 'online',
+    busy: Boolean(status.busy),
+    available:
+      status.connectionStatus === 'online' &&
+      !status.busy,
   };
 }
 
@@ -233,6 +257,213 @@ export const handler = router({
             if (a.available === b.available) return 0;
             return a.available ? -1 : 1;
           }),
+      });
+    },
+  ],
+
+  'POST /api/rentals/start': [
+    requireAuth(),
+    async ctx => {
+      const body = (ctx.body || {}) as { catalogId?: string };
+      const catalogId = String(body.catalogId || '').trim();
+      if (!catalogId) return error('catalog_id_required', 400);
+
+      const { items: existingSessions } =
+        await db.list<RentalSession>(
+          rentalTable(ctx.user!.userId),
+          { limit: 20 }
+        );
+      if (
+        existingSessions.some(
+          session => session.status === 'active'
+        )
+      ) {
+        return error('rental_already_active', 409);
+      }
+
+      const [item] = await db.get<CatalogDevice>(
+        CATALOG_TABLE,
+        [catalogId]
+      );
+      if (!item) return error('catalog_device_not_found', 404);
+
+      let status: AgentStatus;
+      try {
+        status = await agentRequest<AgentStatus>('/status', {
+          deviceId: item.ownerDeviceId,
+          deviceKey: item.bridgeKey,
+        });
+      } catch {
+        return error('agent_api_unavailable', 502);
+      }
+
+      if (status.connectionStatus !== 'online') {
+        return error('device_offline', 409);
+      }
+      if (status.busy) {
+        return error('device_busy', 409);
+      }
+
+      let reservation: {
+        sessionId: string;
+        startedAt: string;
+      };
+
+      try {
+        reservation = await agentRequest('/reserve', {
+          deviceId: item.ownerDeviceId,
+          deviceKey: item.bridgeKey,
+          renterId: ctx.user!.userId,
+        });
+      } catch (reserveError) {
+        const message =
+          reserveError instanceof Error
+            ? reserveError.message
+            : 'device_busy';
+        return error(message, 409);
+      }
+
+      const selfTest = item.ownerId === ctx.user!.userId;
+      const record: RentalSession = {
+        catalogId,
+        ownerId: item.ownerId,
+        ownerDeviceId: item.ownerDeviceId,
+        model: item.model,
+        country: item.country,
+        hourlyRate: item.hourlyRate,
+        hostRate: 0.5,
+        renderSessionId: reservation.sessionId,
+        status: 'active',
+        startedAt: reservation.startedAt,
+        selfTest,
+      };
+
+      const [id] = await db.add(
+        rentalTable(ctx.user!.userId),
+        [record]
+      );
+
+      if (!id) {
+        try {
+          await agentRequest('/release', {
+            deviceId: item.ownerDeviceId,
+            deviceKey: item.bridgeKey,
+            sessionId: reservation.sessionId,
+          });
+        } catch {
+          // Reservation will be cleared by a later retry or service restart.
+        }
+        return error('rental_create_failed', 500);
+      }
+
+      return json({
+        session: {
+          id,
+          ...record,
+          billingMode: selfTest ? 'self_test' : 'metered',
+        },
+      }, 201);
+    },
+  ],
+
+  'GET /api/rentals/active': [
+    requireAuth(),
+    async ctx => {
+      const { items } = await db.list<RentalSession>(
+        rentalTable(ctx.user!.userId),
+        { limit: 50 }
+      );
+
+      const sessions = items
+        .filter(item => item.status === 'active')
+        .sort(
+          (a, b) =>
+            Date.parse(b.startedAt) -
+            Date.parse(a.startedAt)
+        );
+
+      return json({ sessions });
+    },
+  ],
+
+  'POST /api/rentals/:id/end': [
+    requireAuth(),
+    async ctx => {
+      const [session] = await db.get<RentalSession>(
+        rentalTable(ctx.user!.userId),
+        [ctx.params.id]
+      );
+      if (!session) return error('rental_not_found', 404);
+
+      if (session.status === 'ended') {
+        return json({
+          session: {
+            id: ctx.params.id,
+            ...session,
+          },
+        });
+      }
+
+      const [catalogItem] = await db.get<CatalogDevice>(
+        CATALOG_TABLE,
+        [session.catalogId]
+      );
+
+      if (catalogItem) {
+        try {
+          await agentRequest('/release', {
+            deviceId: session.ownerDeviceId,
+            deviceKey: catalogItem.bridgeKey,
+            sessionId: session.renderSessionId,
+          });
+        } catch {
+          // Ending the local session must still be possible.
+        }
+      }
+
+      const endedAt = new Date().toISOString();
+      const billedSeconds = Math.max(
+        1,
+        Math.ceil(
+          (Date.parse(endedAt) -
+            Date.parse(session.startedAt)) /
+            1000
+        )
+      );
+      const rawTotal =
+        (billedSeconds / 3600) * session.hourlyRate;
+      const rawHost =
+        (billedSeconds / 3600) * session.hostRate;
+
+      const updated: RentalSession = {
+        ...session,
+        status: 'ended',
+        endedAt,
+        billedSeconds,
+        totalAmount: session.selfTest
+          ? 0
+          : Number(rawTotal.toFixed(6)),
+        hostAmount: session.selfTest
+          ? 0
+          : Number(rawHost.toFixed(6)),
+      };
+
+      const [ok] = await db.update(
+        rentalTable(ctx.user!.userId),
+        [
+          {
+            id: ctx.params.id,
+            record: updated,
+          },
+        ]
+      );
+      if (!ok) return error('rental_end_failed', 500);
+
+      return json({
+        session: {
+          id: ctx.params.id,
+          ...updated,
+        },
       });
     },
   ],
