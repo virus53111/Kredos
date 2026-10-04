@@ -106,7 +106,10 @@ const words: Record<string, Record<string, string>> = {
     pairHelp:
       'Открой PhoneBridge Agent на Android и вставь этот код. Код действует 10 минут и используется один раз.',
     copyPair: 'Копировать код',
-    downloadAgent: 'Скачать Android Agent',
+    installApp: 'Установить приложение',
+    downloadAgent: 'Скачать Agent APK',
+    agentTitle: 'PhoneBridge Agent для Android',
+    agentText: 'Установи Agent на телефон владельца, чтобы устройство могло быть Online в каталоге.',
     lastSeen: 'Последний heartbeat',
     never: 'ещё не было',
     stage: 'Этап 4: реальное подключение Android',
@@ -168,7 +171,10 @@ const words: Record<string, Record<string, string>> = {
     pairHelp:
       'Open PhoneBridge Agent on Android and paste this code. It expires in 10 minutes and works once.',
     copyPair: 'Copy pairing code',
-    downloadAgent: 'Download Android Agent',
+    installApp: 'Install app',
+    downloadAgent: 'Download Agent APK',
+    agentTitle: 'PhoneBridge Agent for Android',
+    agentText: 'Install the Agent on the host phone so the device can stay Online in the catalog.',
     lastSeen: 'Last heartbeat',
     never: 'never',
     stage: 'Stage 4: real Android connection',
@@ -229,7 +235,10 @@ const words: Record<string, Record<string, string>> = {
     pairHelp:
       'Atver PhoneBridge Agent Android ierīcē un ievadi šo kodu. Tas darbojas 10 minūtes un vienu reizi.',
     copyPair: 'Kopēt kodu',
-    downloadAgent: 'Lejupielādēt Android Agent',
+    installApp: 'Instalēt lietotni',
+    downloadAgent: 'Lejupielādēt Agent APK',
+    agentTitle: 'PhoneBridge Agent Android ierīcei',
+    agentText: 'Instalē Agent īpašnieka tālrunī, lai ierīce būtu tiešsaistē katalogā.',
     lastSeen: 'Pēdējais heartbeat',
     never: 'nav bijis',
     stage: '4. posms: reāls Android savienojums',
@@ -289,7 +298,10 @@ const words: Record<string, Record<string, string>> = {
     pairHelp:
       'Ava Androidis PhoneBridge Agent ja sisesta see kood. Kood aegub 10 minutiga ja töötab ühe korra.',
     copyPair: 'Kopeeri kood',
-    downloadAgent: 'Laadi Android Agent',
+    installApp: 'Paigalda rakendus',
+    downloadAgent: 'Laadi Agent APK',
+    agentTitle: 'PhoneBridge Agent Androidile',
+    agentText: 'Paigalda Agent omaniku telefoni, et seade saaks kataloogis Online olla.',
     lastSeen: 'Viimane heartbeat',
     never: 'pole olnud',
     stage: '4. etapp: päris Androidi ühendus',
@@ -349,7 +361,10 @@ const words: Record<string, Record<string, string>> = {
     pairHelp:
       'Atidaryk PhoneBridge Agent Android telefone ir įklijuok šį kodą. Jis galioja 10 minučių ir vieną kartą.',
     copyPair: 'Kopijuoti kodą',
-    downloadAgent: 'Atsisiųsti Android Agent',
+    installApp: 'Įdiegti programėlę',
+    downloadAgent: 'Atsisiųsti Agent APK',
+    agentTitle: 'PhoneBridge Agent Android',
+    agentText: 'Įdiek Agent savininko telefone, kad įrenginys galėtų būti Online kataloge.',
     lastSeen: 'Paskutinis heartbeat',
     never: 'dar nebuvo',
     stage: '4 etapas: tikras Android ryšys',
@@ -409,7 +424,10 @@ const words: Record<string, Record<string, string>> = {
     pairHelp:
       'Відкрий PhoneBridge Agent на Android і встав цей код. Він діє 10 хвилин і лише один раз.',
     copyPair: 'Копіювати код',
-    downloadAgent: 'Завантажити Android Agent',
+    installApp: 'Встановити застосунок',
+    downloadAgent: 'Завантажити Agent APK',
+    agentTitle: 'PhoneBridge Agent для Android',
+    agentText: 'Встанови Agent на телефон власника, щоб пристрій міг бути Online у каталозі.',
     lastSeen: 'Останній heartbeat',
     never: 'ще не було',
     stage: 'Етап 4: реальне підключення Android',
@@ -442,6 +460,7 @@ let phoneDraft: PhoneDraft = {
 };
 
 const pairings = new Map<string, PairingInfo>();
+const AGENT_APK_URL = 'https://github.com/virus53111/Kredos/releases/download/agent-build-10/PhoneBridge-Agent.apk';
 
 function t(key: string): string {
   return words[lang]?.[key] || words.en[key] || key;
@@ -501,6 +520,21 @@ function header(): string {
   `;
 }
 
+function agentPanel(): string {
+  return `
+    <div class="banner">
+      <div>
+        <b>${t('agentTitle')}</b>
+        <p>${t('agentText')}</p>
+      </div>
+      <div class="hero-actions">
+        <a class="btn primary" href="${AGENT_APK_URL}" rel="noopener">${t('installApp')}</a>
+        <a class="btn secondary" href="${AGENT_APK_URL}" target="_blank" rel="noopener">${t('downloadAgent')}</a>
+      </div>
+    </div>
+  `;
+}
+
 function landing(): string {
   return `
     ${header()}
@@ -554,6 +588,7 @@ function landing(): string {
         </div>
 
         ${catalogCards(true)}
+        ${agentPanel()}
       </section>
 
       <section class="section shell">
@@ -754,6 +789,8 @@ function renterBody(): string {
 
 function hostBody(): string {
   return `
+    ${agentPanel()}
+    <div style="height:16px"></div>
     ${formOpen ? phoneForm() : ''}
 
     <div class="grid">
@@ -922,7 +959,7 @@ function pairingBox(deviceId: string, pairing: PairingInfo): string {
       <div class="device-actions">
         <a
           class="btn secondary small"
-          href="https://github.com/virus53111/Kredos/releases/download/agent-build-5/PhoneBridge-Agent.apk"
+          href="${AGENT_APK_URL}"
           target="_blank"
           rel="noopener"
         >
