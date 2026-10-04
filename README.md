@@ -1,20 +1,39 @@
 # PhoneBridge
 
-Working Stage 3 source for the deployed PhoneBridge marketplace prototype.
+Stage 4 working prototype for a marketplace that rents access to real Android phones.
 
 Live app: https://phonebridge-zfvppo.v2.appdeploy.ai/
 
-Current functionality:
-- managed sign-in (Google or email link);
+## Implemented
+
+- managed sign-in;
 - renter / phone-owner roles;
 - persistent server-side profiles;
-- host phone records stored in the managed database;
+- host phone records;
+- one-time device pairing codes (10 minute expiry);
+- Android agent claim flow with a server-issued device token;
+- visible Android foreground service with a 60-second heartbeat;
+- host dashboard Online / Offline status (120-second online window);
 - $1/hour and $10/24h pricing presentation;
 - $0.50/hour host-share presentation;
 - referral code per profile;
-- Russian, English, Latvian, Estonian, Lithuanian and Ukrainian UI;
-- desktop and mobile responsive design.
+- Russian, English, Latvian, Estonian, Lithuanian and Ukrainian UI.
 
-Stage 4 will add the Android device agent, device registration token and online/offline heartbeat.
+## Android Agent
 
-The deployed runtime uses the AppDeploy-managed `@appdeploy/client` and `@appdeploy/sdk` packages. They are injected by the deployment platform rather than committed as ordinary npm dependencies.
+Source is in `android-agent/`.
+
+The agent currently does only Stage 4 presence:
+- pairs a phone to a host-owned device record;
+- stores the issued device token locally;
+- sends heartbeat and basic model/Android metadata;
+- shows a persistent Android notification while active.
+
+It does **not** read SMS, contacts, call logs, IMEI, photos, or accounts. It does not provide screen control yet.
+
+GitHub Actions builds a debug APK and publishes it as a prerelease:
+https://github.com/virus53111/Kredos/releases
+
+## Next
+
+Stage 5: explicit-consent remote screen/control session, reservation state, and server-side rental timer.

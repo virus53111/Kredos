@@ -502,6 +502,17 @@ a {
   border: 1px solid #4b4360;
   color: #c4b9ff;
 }
+.status.online { border-color:#2e6b55; color:#83e7c2; background:rgba(56,211,159,.08); }
+.status.offline { border-color:#65424b; color:#e0a1ad; background:rgba(199,75,96,.08); }
+.status.pending { border-color:#5a4e7d; color:#c4b9ff; background:rgba(124,92,255,.08); }
+.device-wrap { border-bottom:1px solid #1d293d; }
+.device-wrap:last-child { border-bottom:0; }
+.device-wrap .device-item { border-bottom:0; }
+.device-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.pair-box { margin:0 0 14px; padding:14px; border:1px solid #50458a; border-radius:14px; background:rgba(124,92,255,.08); display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.pair-box small { color:#b6aaff; font-weight:800; }
+.pair-box p { margin:6px 0 0; color:var(--muted); font-size:11px; max-width:620px; }
+.pair-code { margin-top:5px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; line-height:1.45; word-break:break-all; color:white; }
 .notice {
   margin-bottom: 16px;
   padding: 12px 14px;
