@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="theme-color" content="#080d18"/>
+  <title>PhoneBridge — Dashboard</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <link rel="stylesheet" href="auth.css"/>
+</head>
+<body class="dashboard-page">
+  <header class="dashboard-header dashboard-shell">
+    <a class="brand" href="index.html"><span class="brand-mark">PB</span><span>PhoneBridge</span></a>
+    <div class="user-menu">
+      <select id="languageSelect" class="language-select" aria-label="Language">
+        <option value="ru">RU</option><option value="en">EN</option><option value="lv">LV</option>
+        <option value="et">ET</option><option value="lt">LT</option><option value="uk">UA</option>
+      </select>
+      <span id="userEmail" class="user-pill"></span>
+      <button id="logoutBtn" class="btn btn-ghost" data-t="logout">Выйти</button>
+    </div>
+  </header>
+
+  <main class="dashboard-main dashboard-shell">
+    <div class="dash-head">
+      <div>
+        <div id="roleEyebrow" class="eyebrow"></div>
+        <h1 id="dashTitle"></h1>
+        <p id="dashText"></p>
+      </div>
+      <a id="primaryAction" class="btn btn-primary" href="#"></a>
+    </div>
+
+    <section id="renterDashboard" class="hidden">
+      <div class="stat-grid">
+        <div class="stat-card"><small data-t="balance">Баланс</small><strong>$0.00</strong></div>
+        <div class="stat-card"><small data-t="activeSessions">Активные сессии</small><strong>0</strong></div>
+        <div class="stat-card"><small data-t="hoursUsed">Использовано часов</small><strong>0.0</strong></div>
+      </div>
+      <div class="panel-grid">
+        <section class="panel">
+          <h2 data-t="recentRentals">Последние аренды</h2>
+          <div class="empty-box"><b data-t="noRentals">Аренд пока нет</b><span data-t="noRentalsText">Выбери устройство в каталоге. Реальные сессии подключим на этапе 5.</span></div>
+        </section>
+        <aside class="panel">
+          <h2 data-t="account">Аккаунт</h2>
+          <div class="status-list">
+            <div class="status-row"><span data-t="role">Роль</span><b data-t="renter">Арендатор</b></div>
+            <div class="status-row"><span data-t="rate">Тариф</span><b>$1 / h</b></div>
+            <div class="status-row"><span data-t="dayRate">24 часа</span><b>$10</b></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="hostDashboard" class="hidden">
+      <div class="stat-grid">
+        <div class="stat-card"><small data-t="earnings">Заработано</small><strong>$0.00</strong></div>
+        <div class="stat-card"><small data-t="devices">Телефоны</small><strong>0</strong></div>
+        <div class="stat-card"><small data-t="paidHours">Оплаченных часов</small><strong>0.0</strong></div>
+      </div>
+      <div class="panel-grid">
+        <section class="panel">
+          <h2 data-t="myDevices">Мои телефоны</h2>
+          <div class="empty-box"><b data-t="noDevices">Телефонов пока нет</b><span data-t="noDevicesText">Добавление и онлайн-статус устройства подключим на этапе 3.</span></div>
+        </section>
+        <aside class="panel">
+          <h2 data-t="payout">Выплаты</h2>
+          <div class="status-list">
+            <div class="status-row"><span data-t="hostRate">Ставка владельца</span><b>$0.50 / h</b></div>
+            <div class="status-row"><span data-t="available">Доступно к выводу</span><b>$0.00</b></div>
+            <div class="status-row"><span data-t="payoutStatus">Статус</span><b data-t="notConnected">Не подключено</b></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top:16px">
+      <h2 data-t="referral">Реферальная ссылка</h2>
+      <div class="ref-box"><div><small data-t="yourCode">Твой код</small><div id="refCode" class="ref-code"></div></div><button id="copyRef" class="btn btn-secondary" data-t="copy">Копировать</button></div>
+    </section>
+  </main>
+
+  <script src="auth-core.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>
