@@ -1,44 +1,41 @@
-# KREDOS
+# PhoneBridge — Stage 1
 
-PWA для составления заказов строительных материалов по объектам. Русский, латышский и украинский интерфейс.
+Stage 1 design prototype for a two-sided marketplace where:
 
-## Простой интерфейс
+- renters can choose a real Android device and rent it remotely;
+- phone owners can list eligible Android devices and earn only when a paid rental is active;
+- current concept pricing: **$1/hour** or **$10/24h**;
+- host share concept: **$0.50 per paid hour**;
+- supported UI languages: Russian, English, Latvian, Estonian, Lithuanian, Ukrainian.
 
-В разделе «Заказ» три шага: адрес объекта, выбор материала с количеством, проверка заказа и отправка. Товар добавляется сразу из списка одной кнопкой. Вкладка «Мои материалы» предназначена для добавления новых товаров и резервных копий. Удаление и изменение существующих карточек отключены. Ручной ввод, название заказа, шаблоны и настройки раскрываются при необходимости.
+## What is implemented now
 
-## Каталог DEPO
+- responsive landing page;
+- renter / host entry paths;
+- device cards and pricing presentation;
+- host earnings explainer;
+- referral program UI;
+- lawful-use notice;
+- working language selector with local persistence.
 
-При первом открытии добавляются 36 уникальных товаров из пяти накладных сентября 2026 года. Названия оставлены на латышском, коды сохранены как строки. Колеровка, резка и доставка исключены. Перед заказом сверяйте переписанные с фотографий данные.
+## Not implemented yet
 
-- Поиск по названию и коду, выбор товара в заказ и добавление новых товаров. Каталог работает только на добавление: кнопок удаления и редактирования нет.
-- Один товар на код; одинаковые коды при импорте пропускаются, пользовательские изменения сохраняются.
-- При открытии и сохранении каталога восстанавливаются отсутствующие товары из исходных пяти накладных. Сохранённые пользовательские товары и данные существующих карточек сохраняются без дублей. Восстановление каталога не меняет количества в заказах и шаблонах.
-- Каталог и черновики хранятся в браузере этого устройства. Общие заказы после подключения Firebase хранятся на сервере. Для переноса и резервной копии используйте экспорт/импорт JSON.
-- На 01.10.2026 добавлены 34 точные карточки DEPO из 36 материалов: проверено название и совпадение штрихкода в primaryBarcode/specificationBarcodes публичного каталога DEPO. Для валика Hardy 5905061063948 и плитки Onyx 5902686957591 точного совпадения нет; похожие товары с другим размером, кодом или отделкой не подставлены. Ссылки автоматически дополняют старые каталоги и показываются в старых заказах и PDF; существующие пользовательские ссылки сохраняются. Данные проверки: research/depo-barcode-results.json.
-- Принимаются HTTPS-ссылки вида `https://online.depo.lv/product/123`. Проверка формата не подтверждает соответствие товара.
+This is intentionally only Stage 1. No real authentication, payments, device agent, remote-control gateway, session billing or payouts are connected yet.
 
-## Заказ и отправка
+## Planned stages
 
-Повторные позиции с одинаковым кодом и единицей объединяются по количеству. Можно сохранить шаблон, отправить текст в WhatsApp, распечатать или сохранить PDF. Кнопка «Поделиться PDF» создаёт A4 со списком товаров, адресом, кодами и количеством. На поддерживаемых устройствах открывается системная отправка файла; иначе PDF скачивается. PDF использует изображения текста для поддержки латышского и кириллицы; текст не выделяется, ссылки DEPO кликабельны. Цены, НДС и финансовые реквизиты не добавляются: это список материалов для заказа.
+1. **Design & UX** — current stage.
+2. **Accounts & database** — renter/host profiles, phone records, admin.
+3. **Device agent & presence** — Android client registration, online/offline state, verification.
+4. **Remote sessions** — secure session token, reservation, connection gateway, server-side timer.
+5. **Wallet & crypto payments** — deposits, ledger, hourly charging.
+6. **Host earnings & payouts** — $0.50/hour accounting, payout requests.
+7. **Referral engine** — host commissions and renter discounts.
+8. **Moderation & abuse controls** — device verification, usage rules, logs, bans, rate limits.
+9. **Production deployment & QA** — monitoring, backups, security review and end-to-end tests.
 
-## Запуск
+## Local preview
 
-Статические файлы находятся в корне репозитория. Для GitHub Pages выберите `main` и `/ (root)`.
+Open `index.html` in a browser.
 
-```sh
-python -m http.server 8765
-```
-
-PWA кеширует каталог и генератор PDF для работы без сети. Данные предыдущих заказов и шаблонов сохраняются.
-
-## Проверка
-
-```sh
-node --test tests/catalog.test.cjs
-```
-
-Проверка структуры PDF дополнительно требует `pdf-lib`: `node --test tests/order-pdf.test.cjs`. Основной код приложения не использует внешних зависимостей. Автоматические проверки каталога выполняют реальные скрипты через DOM-адаптер; это не замена проверке в браузере.
-
-## Вход, общие заказы и права
-
-Подготовлена интеграция Firebase Auth и Firestore: Google, email с подтверждением, администратор `dshtriters@gmail.com`, назначаемые модераторы. Правила доступа проверены в эмуляторе Firestore. Подключён проект Firebase `kredos-3f3d6`: включены Google и Email/Password, разрешён домен `virus53111.github.io`, база Firestore в `europe-north1`, серверные правила опубликованы. Инструкция: [cloud/SETUP.md](cloud/SETUP.md).
+> Placeholder brand name: **PhoneBridge**. It can be renamed before production.
