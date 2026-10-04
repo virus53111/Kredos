@@ -1574,7 +1574,6 @@ function startSessionClock(): void {
     if (cost) {
       cost.textContent =
         '
-    }
   }, 1000);
 }
 
