@@ -48,6 +48,7 @@ type RentalSession = {
   hourlyRate: number;
   hostRate: number;
   renderSessionId: string;
+  viewerToken: string;
   status: 'active' | 'ended';
   startedAt: string;
   endedAt?: string;
@@ -133,7 +134,7 @@ const words: Record<string, Record<string, string>> = {
     installApp: 'Установить приложение',
     downloadAgent: 'Скачать Agent APK',
     agentTitle: 'PhoneBridge Agent для Android',
-    agentText: 'Установи Agent на телефон владельца, чтобы устройство могло быть Online в каталоге.',
+    agentText: 'Скачай APK, затем открой файл на Android и нажми «Установить». После установки появится иконка PhoneBridge Agent.',
     lastSeen: 'Последний heartbeat',
     never: 'ещё не было',
     stage: 'Этап 4: реальное подключение Android',
@@ -149,7 +150,7 @@ const words: Record<string, Record<string, string>> = {
     sessionCost: 'Текущая стоимость',
     selfTest: 'Тестовая сессия — без списания денег',
     endSession: 'Завершить аренду',
-    remotePreparing: 'Живой экран телефона подключаем следующим шагом. Бронирование и таймер уже работают.',
+    remotePreparing: 'Ожидание трансляции с телефона. На телефоне владельца должен быть включён Screen sharing в Agent.',
     fullscreen: 'На весь экран',
   },
   en: {
@@ -210,7 +211,7 @@ const words: Record<string, Record<string, string>> = {
     installApp: 'Install app',
     downloadAgent: 'Download Agent APK',
     agentTitle: 'PhoneBridge Agent for Android',
-    agentText: 'Install the Agent on the host phone so the device can stay Online in the catalog.',
+    agentText: 'Download the APK, open it on Android and tap Install. PhoneBridge Agent will then appear in the app list.',
     lastSeen: 'Last heartbeat',
     never: 'never',
     stage: 'Stage 4: real Android connection',
@@ -226,7 +227,7 @@ const words: Record<string, Record<string, string>> = {
     sessionCost: 'Current cost',
     selfTest: 'Self-test session — no charge',
     endSession: 'End rental',
-    remotePreparing: 'The live phone screen is the next sub-step. Reservation and timer already work.',
+    remotePreparing: 'Waiting for the phone stream. Screen sharing must be enabled in the owner Agent.',
     fullscreen: 'Fullscreen',
   },
   lv: {
@@ -545,6 +546,9 @@ let message = '';
 let catalogMessage = '';
 let refreshTimer: number | null = null;
 let sessionClockTimer: number | null = null;
+let viewerSocket: WebSocket | null = null;
+let viewerSessionId: string | null = null;
+let lastFrameUrl: string | null = null;
 
 let phoneDraft: PhoneDraft = {
   model: '',
@@ -555,7 +559,7 @@ let phoneDraft: PhoneDraft = {
 };
 
 const pairings = new Map<string, PairingInfo>();
-const AGENT_APK_URL = 'https://github.com/virus53111/Kredos/releases/download/agent-build-13/PhoneBridge-Agent.apk';
+const AGENT_APK_URL = 'https://github.com/virus53111/Kredos/releases/download/agent-build-27/PhoneBridge-Agent.apk';
 
 function t(key: string): string {
   return words[lang]?.[key] || words.en[key] || key;
@@ -816,13 +820,24 @@ function sessionView(): string {
       <div class="session-layout">
         <section class="remote-panel">
           <div class="remote-phone-shell">
-            <div class="remote-phone-screen">
-              <div class="remote-placeholder">
+            <div class="remote-phone-screen" id="remote-screen">
+              <img
+                id="remote-stream"
+                class="remote-stream"
+                alt="${esc(activeSession.model)}"
+              >
+              <div class="remote-placeholder" id="remote-wait">
                 <span class="online">● ONLINE</span>
                 <strong>${esc(activeSession.model)}</strong>
                 <small>${esc(activeSession.country)}</small>
                 <p>${t('remotePreparing')}</p>
               </div>
+              <button
+                class="btn ghost small remote-fullscreen"
+                data-action="fullscreen"
+              >
+                ${t('fullscreen')}
+              </button>
             </div>
           </div>
         </section>
@@ -1154,6 +1169,10 @@ function pairingBox(deviceId: string, pairing: PairingInfo): string {
 function render(): void {
   stopSessionClock();
 
+  if (currentView !== 'session' || !activeSession) {
+    stopViewerSocket();
+  }
+
   if (currentView === 'session' && activeSession) {
     root.innerHTML = sessionView();
   } else if (currentView === 'catalog') {
@@ -1171,6 +1190,7 @@ function render(): void {
 
   if (currentView === 'session' && activeSession) {
     startSessionClock();
+    connectViewerSocket();
   }
 }
 
@@ -1307,6 +1327,14 @@ function bind(): void {
 
       if (action === 'end-rental') {
         await endRental();
+      }
+
+      if (action === 'fullscreen') {
+        const screen =
+          document.querySelector<HTMLElement>('#remote-screen');
+        if (screen?.requestFullscreen) {
+          await screen.requestFullscreen();
+        }
       }
     });
   });
@@ -1474,6 +1502,7 @@ async function endRental(): Promise<void> {
       {}
     );
     activeSession = null;
+    stopViewerSocket();
     currentView = 'catalog';
     await loadCatalog();
     startRefresh();
@@ -1511,6 +1540,80 @@ function stopSessionClock(): void {
   if (sessionClockTimer !== null) {
     window.clearInterval(sessionClockTimer);
     sessionClockTimer = null;
+  }
+}
+
+function connectViewerSocket(): void {
+  if (!activeSession?.viewerToken) return;
+
+  if (
+    viewerSocket &&
+    viewerSessionId === activeSession.renderSessionId &&
+    (
+      viewerSocket.readyState === WebSocket.OPEN ||
+      viewerSocket.readyState === WebSocket.CONNECTING
+    )
+  ) {
+    return;
+  }
+
+  stopViewerSocket();
+
+  viewerSessionId = activeSession.renderSessionId;
+  const token = encodeURIComponent(activeSession.viewerToken);
+  viewerSocket = new WebSocket(
+    'wss://phonebridge-agent-api.onrender.com/ws' +
+      '?role=viewer&token=' + token
+  );
+  viewerSocket.binaryType = 'blob';
+
+  viewerSocket.onmessage = event => {
+    if (!(event.data instanceof Blob)) return;
+
+    const nextUrl = URL.createObjectURL(event.data);
+    const image =
+      document.querySelector<HTMLImageElement>('#remote-stream');
+    const wait =
+      document.querySelector<HTMLElement>('#remote-wait');
+
+    if (!image) {
+      URL.revokeObjectURL(nextUrl);
+      return;
+    }
+
+    const previous = lastFrameUrl;
+    lastFrameUrl = nextUrl;
+    image.src = nextUrl;
+    image.style.display = 'block';
+    if (wait) wait.style.display = 'none';
+
+    if (previous) {
+      window.setTimeout(
+        () => URL.revokeObjectURL(previous),
+        1000
+      );
+    }
+  };
+
+  viewerSocket.onclose = () => {
+    viewerSocket = null;
+  };
+
+  viewerSocket.onerror = () => {
+    // The UI keeps showing the waiting state and reconnects on render.
+  };
+}
+
+function stopViewerSocket(): void {
+  if (viewerSocket) {
+    viewerSocket.close(1000, 'view_closed');
+    viewerSocket = null;
+  }
+  viewerSessionId = null;
+
+  if (lastFrameUrl) {
+    URL.revokeObjectURL(lastFrameUrl);
+    lastFrameUrl = null;
   }
 }
 
