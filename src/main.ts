@@ -2,7 +2,7 @@ import './styles.css';
 import { api, auth } from '@appdeploy/client';
 
 type Role = 'renter' | 'host';
-type View = 'home' | 'dashboard' | 'catalog';
+type View = 'home' | 'dashboard' | 'catalog' | 'session';
 
 type Profile = {
   role: Role;
@@ -35,6 +35,27 @@ type CatalogDevice = {
   connectionStatus: 'online' | 'offline';
   lastSeenAt?: string | null;
   available: boolean;
+  busy?: boolean;
+};
+
+type RentalSession = {
+  id: string;
+  catalogId: string;
+  ownerId: string;
+  ownerDeviceId: string;
+  model: string;
+  country: string;
+  hourlyRate: number;
+  hostRate: number;
+  renderSessionId: string;
+  status: 'active' | 'ended';
+  startedAt: string;
+  endedAt?: string;
+  billedSeconds?: number;
+  totalAmount?: number;
+  hostAmount?: number;
+  selfTest: boolean;
+  billingMode?: 'self_test' | 'metered';
 };
 
 type PairingInfo = {
@@ -121,6 +142,15 @@ const words: Record<string, Record<string, string>> = {
       'Здесь показываются реальные устройства владельцев. Онлайн-телефоны будут доступны для аренды после подключения сессий.',
     rentSoon: 'Бронирование и удалённая сессия подключаются на этапе 5.',
     viewCatalog: 'Смотреть каталог',
+    busy: 'Занят',
+    sessionTitle: 'Удалённая сессия',
+    sessionLive: 'Телефон забронирован за тобой',
+    sessionTimer: 'Время сессии',
+    sessionCost: 'Текущая стоимость',
+    selfTest: 'Тестовая сессия — без списания денег',
+    endSession: 'Завершить аренду',
+    remotePreparing: 'Живой экран телефона подключаем следующим шагом. Бронирование и таймер уже работают.',
+    fullscreen: 'На весь экран',
   },
   en: {
     signIn: 'Sign in',
@@ -189,6 +219,15 @@ const words: Record<string, Record<string, string>> = {
       'These are real host devices. Online phones will become rentable when remote sessions are enabled.',
     rentSoon: 'Booking and remote sessions are being connected in Stage 5.',
     viewCatalog: 'View catalog',
+    busy: 'Busy',
+    sessionTitle: 'Remote session',
+    sessionLive: 'This phone is reserved for you',
+    sessionTimer: 'Session time',
+    sessionCost: 'Current cost',
+    selfTest: 'Self-test session — no charge',
+    endSession: 'End rental',
+    remotePreparing: 'The live phone screen is the next sub-step. Reservation and timer already work.',
+    fullscreen: 'Fullscreen',
   },
   lv: {
     signIn: 'Ieiet',
@@ -255,6 +294,15 @@ const words: Record<string, Record<string, string>> = {
     catalogText: 'Šeit redzamas reālas īpašnieku ierīces.',
     rentSoon: 'Rezervēšana un attālinātās sesijas būs 5. posmā.',
     viewCatalog: 'Skatīt katalogu',
+    busy: 'Aizņemts',
+    sessionTitle: 'Attālinātā sesija',
+    sessionLive: 'Tālrunis ir rezervēts tev',
+    sessionTimer: 'Sesijas laiks',
+    sessionCost: 'Pašreizējā cena',
+    selfTest: 'Testa sesija — bez maksas',
+    endSession: 'Beigt nomu',
+    remotePreparing: 'Dzīvais tālruņa ekrāns ir nākamais solis. Rezervācija un taimeris jau darbojas.',
+    fullscreen: 'Pilnekrāns',
   },
   et: {
     signIn: 'Logi sisse',
@@ -321,6 +369,15 @@ const words: Record<string, Record<string, string>> = {
     catalogText: 'Siin kuvatakse päris omanike seadmed.',
     rentSoon: 'Broneerimine ja kaugseansid tulevad 5. etapis.',
     viewCatalog: 'Vaata kataloogi',
+    busy: 'Hõivatud',
+    sessionTitle: 'Kaugseanss',
+    sessionLive: 'Telefon on sulle reserveeritud',
+    sessionTimer: 'Seansi aeg',
+    sessionCost: 'Praegune hind',
+    selfTest: 'Testseanss — tasuta',
+    endSession: 'Lõpeta rent',
+    remotePreparing: 'Telefoni otsepilt on järgmine samm. Broneering ja taimer juba töötavad.',
+    fullscreen: 'Täisekraan',
   },
   lt: {
     signIn: 'Prisijungti',
@@ -387,6 +444,15 @@ const words: Record<string, Record<string, string>> = {
     catalogText: 'Čia rodomi tikri savininkų įrenginiai.',
     rentSoon: 'Rezervavimas ir nuotolinės sesijos bus 5 etape.',
     viewCatalog: 'Žiūrėti katalogą',
+    busy: 'Užimtas',
+    sessionTitle: 'Nuotolinė sesija',
+    sessionLive: 'Telefonas rezervuotas tau',
+    sessionTimer: 'Sesijos laikas',
+    sessionCost: 'Dabartinė kaina',
+    selfTest: 'Testinė sesija — nemokamai',
+    endSession: 'Baigti nuomą',
+    remotePreparing: 'Gyvas telefono ekranas yra kitas žingsnis. Rezervacija ir laikmatis jau veikia.',
+    fullscreen: 'Visas ekranas',
   },
   uk: {
     signIn: 'Увійти',
@@ -453,6 +519,15 @@ const words: Record<string, Record<string, string>> = {
     catalogText: 'Тут показуються реальні пристрої власників.',
     rentSoon: 'Бронювання та віддалені сесії будуть на етапі 5.',
     viewCatalog: 'Дивитися каталог',
+    busy: 'Зайнятий',
+    sessionTitle: 'Віддалена сесія',
+    sessionLive: 'Телефон зарезервовано за тобою',
+    sessionTimer: 'Час сесії',
+    sessionCost: 'Поточна вартість',
+    selfTest: 'Тестова сесія — без списання коштів',
+    endSession: 'Завершити оренду',
+    remotePreparing: 'Живий екран телефона підключаємо наступним кроком. Бронювання і таймер уже працюють.',
+    fullscreen: 'На весь екран',
   },
 };
 
@@ -463,11 +538,13 @@ let user: Awaited<ReturnType<typeof auth.getUser>> = null;
 let profile: Profile | null = null;
 let devices: Device[] = [];
 let catalogDevices: CatalogDevice[] = [];
+let activeSession: RentalSession | null = null;
 let currentView: View = 'home';
 let formOpen = false;
 let message = '';
 let catalogMessage = '';
 let refreshTimer: number | null = null;
+let sessionClockTimer: number | null = null;
 
 let phoneDraft: PhoneDraft = {
   model: '',
@@ -668,6 +745,7 @@ function catalogCards(preview: boolean): string {
 
 function catalogCard(device: CatalogDevice): string {
   const isOnline = device.connectionStatus === 'online';
+  const canRent = isOnline && !device.busy;
   const meta = [
     device.androidVersion,
     device.network,
@@ -678,8 +756,8 @@ function catalogCard(device: CatalogDevice): string {
     <article class="card">
       <div class="card-top">
         <span>${esc(device.country)}</span>
-        <span class="${isOnline ? 'online' : ''}">
-          ● ${t(device.connectionStatus)}
+        <span class="${canRent ? 'online' : ''}">
+          ● ${device.busy ? t('busy') : t(device.connectionStatus)}
         </span>
       </div>
 
@@ -690,15 +768,84 @@ function catalogCard(device: CatalogDevice): string {
       <div class="price-row">
         <b>$${Number(device.hourlyRate || 1).toFixed(2)}</b>
         <button
-          class="btn ${isOnline ? 'primary' : 'ghost'} small"
+          class="btn ${canRent ? 'primary' : 'ghost'} small"
           data-action="rent-device"
           data-device-id="${esc(device.id)}"
-          ${isOnline ? '' : 'disabled'}
+          ${canRent ? '' : 'disabled'}
         >
-          ${isOnline ? t('rent') : t('offline')}
+          ${device.busy ? t('busy') : canRent ? t('rent') : t('offline')}
         </button>
       </div>
     </article>
+  `;
+}
+
+function elapsedSeconds(session: RentalSession): number {
+  return Math.max(
+    0,
+    Math.floor(
+      (Date.now() - Date.parse(session.startedAt)) / 1000
+    )
+  );
+}
+
+function formatDuration(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, minutes, seconds]
+    .map(value => String(value).padStart(2, '0'))
+    .join(':');
+}
+
+function sessionCost(session: RentalSession): number {
+  if (session.selfTest) return 0;
+  return (elapsedSeconds(session) / 3600) * session.hourlyRate;
+}
+
+function sessionView(): string {
+  if (!activeSession) return catalogView();
+
+  return `
+    ${header()}
+    <main class="dashboard shell">
+      <div class="eyebrow">STAGE 5 · ACTIVE RENTAL</div>
+      <h1>${t('sessionTitle')}</h1>
+      <p style="color:var(--muted)">${t('sessionLive')}</p>
+
+      <div class="session-layout">
+        <section class="remote-panel">
+          <div class="remote-phone-shell">
+            <div class="remote-phone-screen">
+              <div class="remote-placeholder">
+                <span class="online">● ONLINE</span>
+                <strong>${esc(activeSession.model)}</strong>
+                <small>${esc(activeSession.country)}</small>
+                <p>${t('remotePreparing')}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="panel session-info">
+          <h2>${esc(activeSession.model)}</h2>
+          <div class="row">
+            <span>${t('sessionTimer')}</span>
+            <b id="session-elapsed">${formatDuration(elapsedSeconds(activeSession))}</b>
+          </div>
+          <div class="row">
+            <span>${t('sessionCost')}</span>
+            <b id="session-cost">${sessionCost(activeSession).toFixed(4)}</b>
+          </div>
+          ${activeSession.selfTest ? `
+            <div class="notice">${t('selfTest')}</div>
+          ` : ''}
+          <button class="btn primary" data-action="end-rental">
+            ${t('endSession')}
+          </button>
+        </aside>
+      </div>
+    </main>
   `;
 }
 
@@ -1005,7 +1152,11 @@ function pairingBox(deviceId: string, pairing: PairingInfo): string {
 }
 
 function render(): void {
-  if (currentView === 'catalog') {
+  stopSessionClock();
+
+  if (currentView === 'session' && activeSession) {
+    root.innerHTML = sessionView();
+  } else if (currentView === 'catalog') {
     root.innerHTML = catalogView();
   } else if (currentView === 'home') {
     root.innerHTML = landing();
@@ -1017,6 +1168,10 @@ function render(): void {
   }
 
   bind();
+
+  if (currentView === 'session' && activeSession) {
+    startSessionClock();
+  }
 }
 
 function bind(): void {
@@ -1146,17 +1301,12 @@ function bind(): void {
         }
       }
 
-      if (action === 'rent-device') {
-        if (!user) {
-          await start('renter');
-          currentView = 'catalog';
-          await loadCatalog();
-        }
+      if (action === 'rent-device' && element.dataset.deviceId) {
+        await startRental(element.dataset.deviceId);
+      }
 
-        catalogMessage = t('rentSoon');
-        currentView = 'catalog';
-        startRefresh();
-        render();
+      if (action === 'end-rental') {
+        await endRental();
       }
     });
   });
@@ -1262,6 +1412,108 @@ async function loadCatalog(): Promise<void> {
   }
 }
 
+async function loadActiveRental(): Promise<void> {
+  if (!user) {
+    activeSession = null;
+    return;
+  }
+
+  try {
+    const response = await api.get('/api/rentals/active');
+    activeSession = response.data.sessions?.[0] || null;
+  } catch (error) {
+    console.error(error);
+    activeSession = null;
+  }
+}
+
+async function startRental(catalogId: string): Promise<void> {
+  try {
+    if (!user) {
+      await start('renter');
+      if (!user) return;
+    }
+
+    await loadActiveRental();
+    if (activeSession) {
+      currentView = 'session';
+      render();
+      return;
+    }
+
+    const response = await api.post('/api/rentals/start', {
+      catalogId,
+    });
+
+    activeSession = response.data.session;
+    currentView = 'session';
+    catalogMessage = '';
+    await loadCatalog();
+    startRefresh();
+    render();
+  } catch (error) {
+    console.error(error);
+    catalogMessage =
+      error instanceof Error
+        ? error.message
+        : t('error');
+    currentView = 'catalog';
+    await loadCatalog();
+    render();
+  }
+}
+
+async function endRental(): Promise<void> {
+  if (!activeSession) return;
+
+  try {
+    await api.post(
+      '/api/rentals/' +
+        encodeURIComponent(activeSession.id) +
+        '/end',
+      {}
+    );
+    activeSession = null;
+    currentView = 'catalog';
+    await loadCatalog();
+    startRefresh();
+    render();
+  } catch (error) {
+    console.error(error);
+    catalogMessage = t('error');
+    render();
+  }
+}
+
+function startSessionClock(): void {
+  stopSessionClock();
+
+  sessionClockTimer = window.setInterval(() => {
+    if (!activeSession || currentView !== 'session') return;
+
+    const elapsed =
+      document.querySelector<HTMLElement>('#session-elapsed');
+    const cost =
+      document.querySelector<HTMLElement>('#session-cost');
+
+    if (elapsed) {
+      elapsed.textContent =
+        formatDuration(elapsedSeconds(activeSession));
+    }
+    if (cost) {
+      cost.textContent =
+        '' + sessionCost(activeSession).toFixed(4);
+    }
+  }, 1000);
+}
+
+function stopSessionClock(): void {
+  if (sessionClockTimer !== null) {
+    window.clearInterval(sessionClockTimer);
+    sessionClockTimer = null;
+  }
+}
+
 async function openCatalog(): Promise<void> {
   currentView = 'catalog';
   catalogMessage = '';
@@ -1275,10 +1527,24 @@ function startRefresh(): void {
 
   refreshTimer = window.setInterval(async () => {
     try {
-      if (currentView === 'dashboard' && user && profile?.role === 'host') {
+      if (
+        currentView === 'dashboard' &&
+        user &&
+        profile?.role === 'host'
+      ) {
         await loadDevices();
-      } else if (currentView === 'catalog' || currentView === 'home') {
+      } else if (
+        currentView === 'catalog' ||
+        currentView === 'home'
+      ) {
         await loadCatalog();
+      } else if (currentView === 'session') {
+        await loadActiveRental();
+
+        if (!activeSession) {
+          currentView = 'catalog';
+          await loadCatalog();
+        }
       }
 
       render();
@@ -1321,7 +1587,9 @@ async function submitPhone(event: Event): Promise<void> {
   const payload = {
     model: String(data.get('model') || '').trim(),
     country: String(data.get('country') || '').trim(),
-    androidVersion: String(data.get('androidVersion') || '').trim(),
+    androidVersion: String(
+      data.get('androidVersion') || ''
+    ).trim(),
     carrier: String(data.get('carrier') || '').trim(),
     network: String(data.get('network') || '').trim(),
   };
@@ -1353,7 +1621,9 @@ async function boot(): Promise<void> {
 
   if (user) {
     await loadProfile();
-    currentView = 'dashboard';
+    await loadActiveRental();
+    currentView =
+      activeSession ? 'session' : 'dashboard';
   } else {
     currentView = 'home';
   }
