@@ -22,6 +22,14 @@ type PairingInfo = {
   expiresAt: string;
 };
 
+type PhoneDraft = {
+  model: string;
+  country: string;
+  androidVersion: string;
+  carrier: string;
+  network: string;
+};
+
 const words: Record<string, Record<string, string>> = {
   ru: {signIn:'Войти',signOut:'Выйти',heroTitle:'Арендуй настоящий телефон за $1 в час.',heroText:'Для тестирования приложений и QA на реальных устройствах. Или подключи свой Android и получай $0.50 за каждый оплаченный час.',rent:'Арендовать телефон',host:'Сдать свой телефон',available:'Свободен',choose:'Выбери реальный Android',billing:'Плати только за нужное время',needRole:'Выбери тип аккаунта',roleText:'Это определит твой кабинет.',renter:'Арендатор',renterText:'Хочу арендовать реальные телефоны',owner:'Владелец телефона',ownerText:'Хочу сдавать свой Android',renterTitle:'Кабинет арендатора',hostTitle:'Твои телефоны и заработок',balance:'Баланс',sessions:'Активные сессии',hours:'Часы',earnings:'Заработано',phones:'Телефоны',add:'Добавить телефон',model:'Модель',country:'Страна',android:'Версия Android',carrier:'Оператор',network:'Интернет',save:'Сохранить телефон',myPhones:'Мои телефоны',noPhones:'Телефонов пока нет',pending:'Ожидает подключения',online:'Онлайн',offline:'Офлайн',connect:'Подключить',ref:'Реферальный код',copy:'Копировать',copied:'Скопировано',saved:'Телефон сохранён',error:'Ошибка. Попробуй ещё раз.',legal:'Только законное использование для тестирования, QA и совместимых задач.',pairTitle:'Код привязки телефона',pairHelp:'Открой PhoneBridge Agent на Android и вставь этот код. Код действует 10 минут и используется один раз.',copyPair:'Копировать код',downloadAgent:'Скачать Android Agent',lastSeen:'Последний heartbeat',never:'ещё не было',stage:'Этап 4: реальное подключение Android'},
   en: {signIn:'Sign in',signOut:'Sign out',heroTitle:'Rent a real phone for $1 an hour.',heroText:'For app testing and QA on real devices. Or connect your Android and earn $0.50 for every paid rental hour.',rent:'Rent a phone',host:'List my phone',available:'Available',choose:'Choose a real Android',billing:'Pay only for the time you need',needRole:'Choose account type',roleText:'This determines your dashboard.',renter:'Renter',renterText:'I want to rent real phones',owner:'Phone owner',ownerText:'I want to list my Android',renterTitle:'Renter dashboard',hostTitle:'Your phones and earnings',balance:'Balance',sessions:'Active sessions',hours:'Hours',earnings:'Earnings',phones:'Phones',add:'Add phone',model:'Model',country:'Country',android:'Android version',carrier:'Carrier',network:'Internet',save:'Save phone',myPhones:'My phones',noPhones:'No phones yet',pending:'Pending connection',online:'Online',offline:'Offline',connect:'Connect',ref:'Referral code',copy:'Copy',copied:'Copied',saved:'Phone saved',error:'Something went wrong. Try again.',legal:'Lawful use only for testing, QA and compatible tasks.',pairTitle:'Phone pairing code',pairHelp:'Open PhoneBridge Agent on Android and paste this code. It expires in 10 minutes and works once.',copyPair:'Copy pairing code',downloadAgent:'Download Android Agent',lastSeen:'Last heartbeat',never:'never',stage:'Stage 4: real Android connection'},
@@ -39,6 +47,13 @@ let devices: Device[] = [];
 let formOpen = false;
 let message = '';
 let refreshTimer: number | null = null;
+let phoneDraft: PhoneDraft = {
+  model: '',
+  country: '',
+  androidVersion: '',
+  carrier: '',
+  network: '5G',
+};
 const pairings = new Map<string, PairingInfo>();
 
 function t(key: string): string { return words[lang]?.[key] || words.en[key] || key; }
@@ -69,7 +84,7 @@ function hostBody(): string {
   return `${formOpen?phoneForm():''}<div class="grid"><section class="panel"><h2>${t('myPhones')}</h2>${deviceList()}</section><aside class="panel"><h2>Connection</h2><div class="row"><span>Heartbeat</span><b>60 sec</b></div><div class="row"><span>Online window</span><b>120 sec</b></div><div class="row"><span>Status</span><b>Stage 4</b></div></aside></div>`;
 }
 function phoneForm(): string {
-  return `<section class="panel" style="margin-bottom:16px"><h2>${t('add')}</h2><form id="phone-form" class="form-grid"><div class="field"><label>${t('model')}</label><input class="input" name="model" required placeholder="Samsung Galaxy A54"></div><div class="field"><label>${t('country')}</label><input class="input" name="country" required placeholder="Latvia"></div><div class="field"><label>${t('android')}</label><input class="input" name="androidVersion" required placeholder="Android 14"></div><div class="field"><label>${t('carrier')}</label><input class="input" name="carrier" placeholder="Tele2"></div><div class="field"><label>${t('network')}</label><select class="select" name="network"><option>5G</option><option>LTE</option><option>Wi-Fi</option></select></div><div class="field"><label>&nbsp;</label><button class="btn primary" type="submit">${t('save')}</button></div></form><div class="error ${message===t('saved')?'success':''}">${message?esc(message):''}</div></section>`;
+  return `<section class="panel" style="margin-bottom:16px"><h2>${t('add')}</h2><form id="phone-form" class="form-grid"><div class="field"><label>${t('model')}</label><input class="input" name="model" required placeholder="Samsung Galaxy A54" value="${esc(phoneDraft.model)}"></div><div class="field"><label>${t('country')}</label><input class="input" name="country" required placeholder="Latvia" value="${esc(phoneDraft.country)}"></div><div class="field"><label>${t('android')}</label><input class="input" name="androidVersion" required placeholder="Android 14" value="${esc(phoneDraft.androidVersion)}"></div><div class="field"><label>${t('carrier')}</label><input class="input" name="carrier" placeholder="Tele2" value="${esc(phoneDraft.carrier)}"></div><div class="field"><label>${t('network')}</label><select class="select" name="network"><option ${phoneDraft.network==='5G'?'selected':''}>5G</option><option ${phoneDraft.network==='LTE'?'selected':''}>LTE</option><option ${phoneDraft.network==='Wi-Fi'?'selected':''}>Wi-Fi</option></select></div><div class="field"><label>&nbsp;</label><button class="btn primary" type="submit">${t('save')}</button></div></form><div class="error ${message===t('saved')?'success':''}">${message?esc(message):''}</div></section>`;
 }
 function statusLabel(status: Device['connectionStatus']): string { return t(status); }
 function formatLastSeen(value?: string): string {
@@ -114,7 +129,18 @@ function bind(): void {
       }
     })
   );
-  document.querySelector<HTMLFormElement>('#phone-form')?.addEventListener('submit', submitPhone);
+  const phoneFormElement = document.querySelector<HTMLFormElement>('#phone-form');
+  phoneFormElement?.addEventListener('submit', submitPhone);
+  phoneFormElement?.addEventListener('input', event => {
+    const field = event.target as HTMLInputElement | HTMLSelectElement;
+    const key = field.name as keyof PhoneDraft;
+    if (key && key in phoneDraft) phoneDraft[key] = field.value;
+  });
+  phoneFormElement?.addEventListener('change', event => {
+    const field = event.target as HTMLInputElement | HTMLSelectElement;
+    const key = field.name as keyof PhoneDraft;
+    if (key && key in phoneDraft) phoneDraft[key] = field.value;
+  });
 }
 async function start(preferred:Role|null):Promise<void> {
   try {
@@ -161,7 +187,18 @@ async function submitPhone(event:Event):Promise<void> {
   const data=new FormData(form);
   const payload={model:String(data.get('model')||'').trim(),country:String(data.get('country')||'').trim(),androidVersion:String(data.get('androidVersion')||'').trim(),carrier:String(data.get('carrier')||'').trim(),network:String(data.get('network')||'').trim()};
   try {
-    await api.post('/api/devices',payload); await loadDevices(); message=t('saved'); formOpen=true; render();
+    await api.post('/api/devices',payload);
+    await loadDevices();
+    phoneDraft = {
+      model: '',
+      country: '',
+      androidVersion: '',
+      carrier: '',
+      network: '5G',
+    };
+    message=t('saved');
+    formOpen=true;
+    render();
   } catch (error) { console.error(error); message=t('error'); render(); }
 }
 async function boot():Promise<void> { user=await auth.getUser(); if (user) await loadProfile(); render(); }
