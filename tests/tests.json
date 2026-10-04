@@ -114,5 +114,44 @@
       "Wait for an automatic dashboard refresh"
     ],
     "expected": "All typed form values remain visible and unchanged after the refresh."
+  },
+  {
+    "name": "Brand navigation keeps the Google session",
+    "viewport": "mobile",
+    "covers": [
+      "authenticated navigation",
+      "brand home action",
+      "session persistence"
+    ],
+    "setup": [
+      "Sign in with the test identity and open the dashboard"
+    ],
+    "description": "Verifies tapping PhoneBridge returns to the home view without signing the user out.",
+    "steps": [
+      "Tap the PhoneBridge brand",
+      "Open Catalog",
+      "Tap Dashboard"
+    ],
+    "expected": "The user remains signed in throughout and is not asked to authenticate with Google again."
+  },
+  {
+    "name": "Host phone appears in shared rental catalog",
+    "viewport": "desktop",
+    "covers": [
+      "GET /api/catalog",
+      "catalog_devices synchronization",
+      "cross-role catalog navigation",
+      "device presence"
+    ],
+    "setup": [
+      "Sign in as Phone owner",
+      "Add a phone and pair it with an active Agent heartbeat"
+    ],
+    "description": "Verifies a host-owned connected phone becomes visible in the shared catalog that can be opened independently of account role.",
+    "steps": [
+      "Open Dashboard so the device is synchronized",
+      "Open Catalog from the header"
+    ],
+    "expected": "The connected phone is listed in Catalog with its model, country, network, $1/hour price, and Online status."
   }
 ]
