@@ -56,6 +56,15 @@ class ScreenShareService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+
+        getSharedPreferences(
+            HeartbeatService.PREFS,
+            MODE_PRIVATE
+        )
+            .edit()
+            .putBoolean(KEY_SCREEN_READY, false)
+            .apply()
+
         createChannel()
         startForeground(
             NOTIFICATION_ID,
@@ -368,6 +377,9 @@ class ScreenShareService : Service() {
         closeSocket()
         activeSessionId = null
 
+        val currentProjection = projection
+        projection = null
+
         imageReader?.setOnImageAvailableListener(
             null,
             null
@@ -378,8 +390,11 @@ class ScreenShareService : Service() {
         imageReader?.close()
         imageReader = null
 
-        projection?.stop()
-        projection = null
+        try {
+            currentProjection?.stop()
+        } catch (_: Exception) {
+            // Projection may already be stopped by Android.
+        }
 
         frameThread?.quitSafely()
         frameThread = null
@@ -402,9 +417,7 @@ class ScreenShareService : Service() {
         scheduler?.shutdownNow()
         scheduler = null
 
-        if (projection != null) {
-            stopProjection()
-        }
+        stopProjection()
 
         client.dispatcher.executorService.shutdown()
         super.onDestroy()
