@@ -348,6 +348,13 @@ class ScreenShareService : Service() {
                     )
                 }
 
+                override fun onMessage(
+                    webSocket: WebSocket,
+                    text: String
+                ) {
+                    RemoteControlService.handleCommand(text)
+                }
+
                 override fun onFailure(
                     webSocket: WebSocket,
                     t: Throwable,
