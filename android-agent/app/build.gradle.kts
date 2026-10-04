@@ -11,8 +11,8 @@ android {
         applicationId = "io.phonebridge.agent"
         minSdk = 31
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 5
+        versionName = "0.5.0"
 
         buildConfigField(
             "String",
@@ -48,4 +48,8 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+}
+
+dependencies {
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
