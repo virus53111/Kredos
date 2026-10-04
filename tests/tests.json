@@ -153,5 +153,21 @@
       "Open Catalog from the header"
     ],
     "expected": "The connected phone is listed in Catalog with its model, country, network, $1/hour price, and Online status."
+  },
+  {
+    "name": "Android Agent install actions are always visible",
+    "viewport": "mobile",
+    "covers": [
+      "Android Agent distribution",
+      "home install action",
+      "host dashboard install action"
+    ],
+    "description": "Verifies the current Android Agent APK can be reached directly from the website without opening GitHub manually.",
+    "steps": [
+      "Open the PhoneBridge home page",
+      "Confirm Install app and Download Agent APK buttons are visible",
+      "Sign in as Phone owner and open Dashboard"
+    ],
+    "expected": "Both Agent actions are visible on the home page and again in the host dashboard, and point to agent-build-10."
   }
 ]
