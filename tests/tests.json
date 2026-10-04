@@ -168,7 +168,7 @@
       "Confirm Install app and Download Agent APK buttons are visible",
       "Sign in as Phone owner and open Dashboard"
     ],
-    "expected": "Both Agent actions are visible on the home page and again in the host dashboard, and point to the current stable-signed Agent build 13."
+    "expected": "Both Agent actions are visible on the home page and host dashboard and point to the current stable-signed Agent build 40."
   },
   {
     "name": "Existing phone reconnects without creating a duplicate",
