@@ -1,5 +1,6 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
+import { WebSocket, WebSocketServer } from 'ws';
 
 const PORT = Number(process.env.PORT || 10000);
 const SECRET = process.env.PB_AGENT_SECRET || crypto.randomBytes(32).toString('hex');
@@ -12,6 +13,8 @@ if (!process.env.PB_AGENT_SECRET) {
 const lastSeen = new Map();
 const usedPairings = new Set();
 const reservations = new Map();
+const agentSockets = new Map();
+const viewerSockets = new Map();
 
 function b64url(input) {
   return Buffer.from(input).toString('base64url');
@@ -230,18 +233,28 @@ async function handle(req, res) {
 
     const sessionId = randomId();
     const startedAt = Date.now();
+    const viewerToken = makeToken({
+      typ: 'viewer',
+      sessionId,
+      deviceId,
+      iat: startedAt,
+      exp: startedAt + 24 * 60 * 60_000
+    });
+
     reservations.set(deviceId, {
       sessionId,
       renterId,
       keyHash: hashKey(deviceKey),
-      startedAt
+      startedAt,
+      viewerToken
     });
 
     console.log('[reserve]', deviceId, sessionId);
 
     return json(res, 200, {
       sessionId,
-      startedAt: new Date(startedAt).toISOString()
+      startedAt: new Date(startedAt).toISOString(),
+      viewerToken
     });
   }
 
@@ -268,6 +281,19 @@ async function handle(req, res) {
     }
 
     reservations.delete(deviceId);
+
+    const agentSocket = agentSockets.get(sessionId);
+    if (agentSocket) {
+      agentSocket.close(1000, 'rental_ended');
+      agentSockets.delete(sessionId);
+    }
+
+    const viewerSocket = viewerSockets.get(sessionId);
+    if (viewerSocket) {
+      viewerSocket.close(1000, 'rental_ended');
+      viewerSockets.delete(sessionId);
+    }
+
     console.log('[release]', deviceId, sessionId);
     return json(res, 200, { released: true });
   }
@@ -335,6 +361,129 @@ const server = http.createServer((req, res) => {
   handle(req, res).catch(error => {
     console.error(error);
     json(res, 500, { error: 'server_error' });
+  });
+});
+
+const wss = new WebSocketServer({
+  noServer: true,
+  maxPayload: 2 * 1024 * 1024
+});
+
+server.on('upgrade', (req, socket, head) => {
+  try {
+    const url = new URL(req.url || '/', 'http://localhost');
+
+    if (url.pathname !== '/ws') {
+      socket.destroy();
+      return;
+    }
+
+    const role = url.searchParams.get('role');
+    const token = url.searchParams.get('token') || '';
+
+    if (role === 'viewer') {
+      const viewer = verifyToken(token, 'viewer');
+      const reservation = reservations.get(viewer.deviceId);
+
+      if (
+        !reservation ||
+        reservation.sessionId !== viewer.sessionId
+      ) {
+        socket.destroy();
+        return;
+      }
+
+      wss.handleUpgrade(req, socket, head, ws => {
+        wss.emit('connection', ws, req, {
+          role: 'viewer',
+          sessionId: viewer.sessionId,
+          deviceId: viewer.deviceId
+        });
+      });
+      return;
+    }
+
+    if (role === 'agent') {
+      const agent = verifyToken(token, 'agent');
+      const sessionId =
+        String(url.searchParams.get('sessionId') || '');
+      const reservation = reservations.get(agent.deviceId);
+
+      if (
+        !reservation ||
+        reservation.sessionId !== sessionId
+      ) {
+        socket.destroy();
+        return;
+      }
+
+      wss.handleUpgrade(req, socket, head, ws => {
+        wss.emit('connection', ws, req, {
+          role: 'agent',
+          sessionId,
+          deviceId: agent.deviceId
+        });
+      });
+      return;
+    }
+
+    socket.destroy();
+  } catch {
+    socket.destroy();
+  }
+});
+
+wss.on('connection', (ws, _req, meta) => {
+  const map =
+    meta.role === 'agent'
+      ? agentSockets
+      : viewerSockets;
+
+  const previous = map.get(meta.sessionId);
+  if (previous && previous !== ws) {
+    previous.close(1000, 'replaced');
+  }
+  map.set(meta.sessionId, ws);
+
+  console.log(
+    '[ws-connect]',
+    meta.role,
+    meta.deviceId,
+    meta.sessionId
+  );
+
+  ws.on('message', (data, isBinary) => {
+    if (meta.role === 'agent') {
+      const viewer = viewerSockets.get(meta.sessionId);
+      if (
+        viewer &&
+        viewer.readyState === WebSocket.OPEN
+      ) {
+        viewer.send(data, { binary: isBinary });
+      }
+      return;
+    }
+
+    const agent = agentSockets.get(meta.sessionId);
+    if (
+      agent &&
+      agent.readyState === WebSocket.OPEN &&
+      !isBinary
+    ) {
+      agent.send(data, { binary: false });
+    }
+  });
+
+  ws.on('close', () => {
+    if (map.get(meta.sessionId) === ws) {
+      map.delete(meta.sessionId);
+    }
+    console.log(
+      '[ws-close]',
+      meta.role,
+      meta.deviceId,
+      meta.sessionId
+    );
   });
 });
 
