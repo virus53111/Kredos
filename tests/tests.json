@@ -168,6 +168,45 @@
       "Confirm Install app and Download Agent APK buttons are visible",
       "Sign in as Phone owner and open Dashboard"
     ],
-    "expected": "Both Agent actions are visible on the home page and again in the host dashboard, and point to agent-build-10."
+    "expected": "Both Agent actions are visible on the home page and again in the host dashboard, and point to the current stable-signed Agent build 13."
+  },
+  {
+    "name": "Existing phone reconnects without creating a duplicate",
+    "viewport": "mobile",
+    "covers": [
+      "POST /api/devices/:id/pair",
+      "existing-device reconnect",
+      "pairing UI"
+    ],
+    "setup": [
+      "Sign in as Phone owner",
+      "Have one existing phone in My phones"
+    ],
+    "description": "Verifies reinstalling the Agent does not require adding the phone again.",
+    "steps": [
+      "Tap Reconnect Agent on the existing phone",
+      "Generate a new pairing code"
+    ],
+    "expected": "A fresh pairing code appears for the same phone and the phone count does not increase."
+  },
+  {
+    "name": "Host can delete an old phone cleanly",
+    "viewport": "mobile",
+    "covers": [
+      "DELETE /api/devices/:id",
+      "catalog_devices deletion",
+      "owner device deletion"
+    ],
+    "setup": [
+      "Sign in as Phone owner",
+      "Have a phone listed in My phones"
+    ],
+    "description": "Verifies an obsolete phone can be removed from both the owner dashboard and shared catalog.",
+    "steps": [
+      "Tap Delete phone",
+      "Confirm deletion",
+      "Open Catalog"
+    ],
+    "expected": "The phone disappears from My phones and no longer appears in Catalog."
   }
 ]
