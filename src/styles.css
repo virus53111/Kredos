@@ -556,6 +556,93 @@ a {
   color: #75849a;
   font-size: 11px;
 }
+
+.session-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+  align-items: start;
+  margin-top: 28px;
+}
+
+.remote-panel {
+  min-height: 620px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(124, 92, 255, 0.14),
+      transparent 34%
+    ),
+    #0b1320;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.remote-phone-shell {
+  width: min(360px, 100%);
+  aspect-ratio: 9 / 19.5;
+  border: 1px solid #44516a;
+  border-radius: 38px;
+  padding: 12px;
+  background: #050912;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+}
+
+.remote-phone-screen {
+  height: 100%;
+  border-radius: 29px;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      #322760,
+      transparent 42%
+    ),
+    #111a2b;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.remote-placeholder {
+  text-align: center;
+  color: var(--muted);
+}
+
+.remote-placeholder strong {
+  display: block;
+  color: white;
+  font-size: 30px;
+  margin: 18px 0 4px;
+}
+
+.remote-placeholder small {
+  display: block;
+  margin-bottom: 24px;
+}
+
+.remote-placeholder p {
+  max-width: 260px;
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+.session-info {
+  position: sticky;
+  top: 18px;
+}
+
+.session-info .notice {
+  margin-top: 16px;
+}
+
+.session-info .btn {
+  width: 100%;
+  margin-top: 16px;
+}
 @media (max-width: 860px) {
   .hero {
     grid-template-columns: 1fr;
