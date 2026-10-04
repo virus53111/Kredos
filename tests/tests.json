@@ -93,5 +93,26 @@
       "Refresh the page"
     ],
     "expected": "English remains selected and the interface stays in English."
+  },
+  {
+    "name": "Phone form draft survives automatic dashboard refresh",
+    "viewport": "mobile",
+    "covers": [
+      "host add-phone form",
+      "30-second device refresh",
+      "draft persistence"
+    ],
+    "setup": [
+      "Sign in and choose Phone owner",
+      "Open Add phone"
+    ],
+    "description": "Verifies typed device details are not cleared when the host dashboard refreshes device presence.",
+    "steps": [
+      "Type Samsung Galaxy A54 as Model",
+      "Type Latvia as Country",
+      "Type Android 14 as Android version",
+      "Wait for an automatic dashboard refresh"
+    ],
+    "expected": "All typed form values remain visible and unchanged after the refresh."
   }
 ]
