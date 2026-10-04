@@ -94,7 +94,10 @@ const words: Record<string, Record<string, string>> = {
     pending: 'Ожидает подключения',
     online: 'Онлайн',
     offline: 'Офлайн',
-    connect: 'Подключить',
+    connect: 'Подключить Agent',
+    reconnect: 'Переподключить Agent',
+    deletePhone: 'Удалить телефон',
+    deleteConfirm: 'Удалить этот телефон из кабинета и каталога?',
     ref: 'Реферальный код',
     copy: 'Копировать',
     copied: 'Скопировано',
@@ -160,7 +163,10 @@ const words: Record<string, Record<string, string>> = {
     pending: 'Pending connection',
     online: 'Online',
     offline: 'Offline',
-    connect: 'Connect',
+    connect: 'Connect Agent',
+    reconnect: 'Reconnect Agent',
+    deletePhone: 'Delete phone',
+    deleteConfirm: 'Delete this phone from the dashboard and catalog?',
     ref: 'Referral code',
     copy: 'Copy',
     copied: 'Copied',
@@ -224,7 +230,10 @@ const words: Record<string, Record<string, string>> = {
     pending: 'Gaida pieslēgumu',
     online: 'Tiešsaistē',
     offline: 'Bezsaistē',
-    connect: 'Pieslēgt',
+    connect: 'Pieslēgt Agent',
+    reconnect: 'Pieslēgt Agent no jauna',
+    deletePhone: 'Dzēst tālruni',
+    deleteConfirm: 'Dzēst šo tālruni no kabineta un kataloga?',
     ref: 'Ieteikuma kods',
     copy: 'Kopēt',
     copied: 'Nokopēts',
@@ -287,7 +296,10 @@ const words: Record<string, Record<string, string>> = {
     pending: 'Ootab ühendust',
     online: 'Online',
     offline: 'Võrguta',
-    connect: 'Ühenda',
+    connect: 'Ühenda Agent',
+    reconnect: 'Ühenda Agent uuesti',
+    deletePhone: 'Kustuta telefon',
+    deleteConfirm: 'Kustutada see telefon töölaualt ja kataloogist?',
     ref: 'Soovituskood',
     copy: 'Kopeeri',
     copied: 'Kopeeritud',
@@ -350,7 +362,10 @@ const words: Record<string, Record<string, string>> = {
     pending: 'Laukia prijungimo',
     online: 'Prisijungęs',
     offline: 'Neprisijungęs',
-    connect: 'Prijungti',
+    connect: 'Prijungti Agent',
+    reconnect: 'Prijungti Agent iš naujo',
+    deletePhone: 'Ištrinti telefoną',
+    deleteConfirm: 'Ištrinti šį telefoną iš paskyros ir katalogo?',
     ref: 'Rekomendacijos kodas',
     copy: 'Kopijuoti',
     copied: 'Nukopijuota',
@@ -413,7 +428,10 @@ const words: Record<string, Record<string, string>> = {
     pending: 'Очікує підключення',
     online: 'Онлайн',
     offline: 'Офлайн',
-    connect: 'Підключити',
+    connect: 'Підключити Agent',
+    reconnect: 'Перепідключити Agent',
+    deletePhone: 'Видалити телефон',
+    deleteConfirm: 'Видалити цей телефон з кабінету та каталогу?',
     ref: 'Реферальний код',
     copy: 'Копіювати',
     copied: 'Скопійовано',
@@ -460,7 +478,7 @@ let phoneDraft: PhoneDraft = {
 };
 
 const pairings = new Map<string, PairingInfo>();
-const AGENT_APK_URL = 'https://github.com/virus53111/Kredos/releases/download/agent-build-10/PhoneBridge-Agent.apk';
+const AGENT_APK_URL = 'https://github.com/virus53111/Kredos/releases/download/agent-build-13/PhoneBridge-Agent.apk';
 
 function t(key: string): string {
   return words[lang]?.[key] || words.en[key] || key;
@@ -928,15 +946,23 @@ function deviceList(): string {
                 ${statusLabel(device.connectionStatus)}
               </span>
 
-              ${device.connectionStatus === 'pending' ? `
-                <button
-                  class="btn secondary small"
-                  data-action="pair-device"
-                  data-device-id="${esc(device.id)}"
-                >
-                  ${t('connect')}
-                </button>
-              ` : ''}
+              <button
+                class="btn secondary small"
+                data-action="pair-device"
+                data-device-id="${esc(device.id)}"
+              >
+                ${device.connectionStatus === 'pending'
+                  ? t('connect')
+                  : t('reconnect')}
+              </button>
+
+              <button
+                class="btn ghost small"
+                data-action="delete-device"
+                data-device-id="${esc(device.id)}"
+              >
+                ${t('deletePhone')}
+              </button>
             </div>
           </div>
 
@@ -1099,6 +1125,24 @@ function bind(): void {
         if (pairing) {
           await navigator.clipboard.writeText(pairing.pairingString);
           element.textContent = t('copied');
+        }
+      }
+
+      if (action === 'delete-device' && element.dataset.deviceId) {
+        const deviceId = element.dataset.deviceId;
+        if (window.confirm(t('deleteConfirm'))) {
+          try {
+            await api.delete(
+              '/api/devices/' + encodeURIComponent(deviceId)
+            );
+            pairings.delete(deviceId);
+            await loadDevices();
+            render();
+          } catch (error) {
+            console.error(error);
+            message = t('error');
+            render();
+          }
         }
       }
 
