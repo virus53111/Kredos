@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -22,6 +23,7 @@ class MainActivity : Activity() {
     private lateinit var pairingInput: EditText
     private lateinit var actionButton: Button
     private lateinit var resetButton: Button
+    private lateinit var screenButton: Button
     private lateinit var batteryButton: Button
     private lateinit var settingsButton: Button
     private lateinit var statusText: TextView
@@ -47,6 +49,44 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         if (::statusText.isInitialized) refreshState()
+    }
+
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (
+            requestCode == SCREEN_CAPTURE_REQUEST &&
+            resultCode == RESULT_OK &&
+            data != null
+        ) {
+            val intent = Intent(
+                this,
+                ScreenShareService::class.java
+            )
+                .putExtra(
+                    ScreenShareService.EXTRA_RESULT_CODE,
+                    resultCode
+                )
+                .putExtra(
+                    ScreenShareService.EXTRA_RESULT_DATA,
+                    data
+                )
+
+            startForegroundService(intent)
+            refreshState()
+        } else if (
+            requestCode == SCREEN_CAPTURE_REQUEST
+        ) {
+            statusText.text =
+                if (isRussian)
+                    "Трансляция экрана не разрешена."
+                else
+                    "Screen sharing permission was not granted."
+        }
     }
 
     private fun buildUi() {
@@ -76,12 +116,11 @@ class MainActivity : Activity() {
 
         val info = TextView(this).apply {
             text = if (isRussian)
-                "Agent держит телефон Online для PhoneBridge. " +
-                    "На Xiaomi/Poco нужно разрешить работу без " +
-                    "ограничений батареи."
+                "Agent держит телефон Online. Разреши трансляцию экрана — " +
+                    "картинка будет отправляться только во время активной аренды."
             else
-                "The Agent keeps this phone Online for PhoneBridge. " +
-                    "Xiaomi/Poco should allow unrestricted battery use."
+                "The Agent keeps this phone Online. Enable screen sharing — " +
+                    "frames are sent only during an active rental."
             textSize = 14f
             setTextColor(Color.rgb(160, 174, 192))
             setPadding(0, dp(18), 0, dp(22))
@@ -124,6 +163,16 @@ class MainActivity : Activity() {
             setOnClickListener { resetPairing() }
         }
         root.addView(resetButton, fullButtonParams(dp(10)))
+
+        screenButton = Button(this).apply {
+            text =
+                if (isRussian)
+                    "Разрешить трансляцию экрана"
+                else
+                    "Enable screen sharing"
+            setOnClickListener { requestScreenShare() }
+        }
+        root.addView(screenButton, fullButtonParams(dp(10)))
 
         batteryButton = Button(this).apply {
             text =
@@ -229,9 +278,14 @@ class MainActivity : Activity() {
             HeartbeatService.KEY_LAST_ERROR,
             null
         )
+        val screenReady = prefs.getBoolean(
+            ScreenShareService.KEY_SCREEN_READY,
+            false
+        )
 
         pairingInput.isEnabled = !paired
         resetButton.isEnabled = paired
+        screenButton.isEnabled = paired && !screenReady
 
         if (paired) {
             pairingInput.setText(
@@ -245,6 +299,19 @@ class MainActivity : Activity() {
                     "Запустить / проверить соединение"
                 else
                     "Start / check connection"
+
+            screenButton.text =
+                if (screenReady) {
+                    if (isRussian)
+                        "Трансляция экрана готова ✓"
+                    else
+                        "Screen sharing ready ✓"
+                } else {
+                    if (isRussian)
+                        "Разрешить трансляцию экрана"
+                    else
+                        "Enable screen sharing"
+                }
 
             statusText.text = buildString {
                 append(
@@ -263,6 +330,20 @@ class MainActivity : Activity() {
                     )
                 }
 
+                append(
+                    if (screenReady) {
+                        if (isRussian)
+                            "\nЭкран: готов к аренде."
+                        else
+                            "\nScreen: ready for rental."
+                    } else {
+                        if (isRussian)
+                            "\nЭкран: требуется разрешение."
+                        else
+                            "\nScreen: permission required."
+                    }
+                )
+
                 if (!lastError.isNullOrBlank()) {
                     append(
                         if (isRussian)
@@ -278,6 +359,7 @@ class MainActivity : Activity() {
             actionButton.text =
                 if (isRussian) "Подключить телефон"
                 else "Connect phone"
+            screenButton.isEnabled = false
             statusText.text =
                 if (isRussian) "Статус: не подключён"
                 else "Status: not connected"
@@ -303,8 +385,29 @@ class MainActivity : Activity() {
             }
     }
 
+    private fun requestScreenShare() {
+        if (!isPaired()) {
+            statusText.text =
+                if (isRussian)
+                    "Сначала подключи телефон к PhoneBridge."
+                else
+                    "Pair the phone with PhoneBridge first."
+            return
+        }
+
+        val manager = getSystemService(
+            MediaProjectionManager::class.java
+        )
+
+        startActivityForResult(
+            manager.createScreenCaptureIntent(),
+            SCREEN_CAPTURE_REQUEST
+        )
+    }
+
     private fun resetPairing() {
         stopService(Intent(this, HeartbeatService::class.java))
+        stopService(Intent(this, ScreenShareService::class.java))
 
         getSharedPreferences(
             HeartbeatService.PREFS,
@@ -390,5 +493,9 @@ class MainActivity : Activity() {
                 100
             )
         }
+    }
+
+    companion object {
+        private const val SCREEN_CAPTURE_REQUEST = 201
     }
 }
