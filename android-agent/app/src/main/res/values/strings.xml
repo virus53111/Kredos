@@ -4,4 +4,5 @@
     <string name="accessibility_description">
         Allows tap, swipe, Home and Back only during an active PhoneBridge rental.
     </string>
+    <string name="remote_control_service">PhoneBridge Remote Control</string>
 </resources>
