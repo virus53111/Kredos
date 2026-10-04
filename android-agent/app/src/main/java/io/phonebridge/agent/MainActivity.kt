@@ -24,6 +24,7 @@ class MainActivity : Activity() {
     private lateinit var actionButton: Button
     private lateinit var resetButton: Button
     private lateinit var screenButton: Button
+    private lateinit var controlButton: Button
     private lateinit var batteryButton: Button
     private lateinit var settingsButton: Button
     private lateinit var statusText: TextView
@@ -189,6 +190,16 @@ class MainActivity : Activity() {
         }
         root.addView(screenButton, fullButtonParams(dp(10)))
 
+        controlButton = Button(this).apply {
+            text =
+                if (isRussian)
+                    "Разрешить удалённое управление"
+                else
+                    "Enable remote control"
+            setOnClickListener { requestRemoteControl() }
+        }
+        root.addView(controlButton, fullButtonParams(dp(10)))
+
         batteryButton = Button(this).apply {
             text =
                 if (isRussian)
@@ -297,10 +308,12 @@ class MainActivity : Activity() {
             ScreenShareService.KEY_SCREEN_READY,
             false
         )
+        val controlReady = RemoteControlService.isEnabled(this)
 
         pairingInput.isEnabled = !paired
         resetButton.isEnabled = paired
         screenButton.isEnabled = paired && !screenReady
+        controlButton.isEnabled = paired
 
         if (paired) {
             pairingInput.setText(
@@ -326,6 +339,19 @@ class MainActivity : Activity() {
                         "Разрешить трансляцию экрана"
                     else
                         "Enable screen sharing"
+                }
+
+            controlButton.text =
+                if (controlReady) {
+                    if (isRussian)
+                        "Удалённое управление включено ✓"
+                    else
+                        "Remote control enabled ✓"
+                } else {
+                    if (isRussian)
+                        "Разрешить удалённое управление"
+                    else
+                        "Enable remote control"
                 }
 
             statusText.text = buildString {
@@ -359,6 +385,24 @@ class MainActivity : Activity() {
                     }
                 )
 
+                append(
+                    if (controlReady) {
+                        if (isRussian)
+                            "
+Управление: готово."
+                        else
+                            "
+Control: ready."
+                    } else {
+                        if (isRussian)
+                            "
+Управление: нужно разрешение специальных возможностей."
+                        else
+                            "
+Control: Accessibility permission required."
+                    }
+                )
+
                 if (!lastError.isNullOrBlank()) {
                     append(
                         if (isRussian)
@@ -375,6 +419,7 @@ class MainActivity : Activity() {
                 if (isRussian) "Подключить телефон"
                 else "Connect phone"
             screenButton.isEnabled = false
+            controlButton.isEnabled = false
             statusText.text =
                 if (isRussian) "Статус: не подключён"
                 else "Status: not connected"
@@ -417,6 +462,12 @@ class MainActivity : Activity() {
         startActivityForResult(
             manager.createScreenCaptureIntent(),
             SCREEN_CAPTURE_REQUEST
+        )
+    }
+
+    private fun requestRemoteControl() {
+        startActivity(
+            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         )
     }
 
