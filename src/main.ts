@@ -99,7 +99,7 @@ function deviceList(): string {
   }).join('');
 }
 function pairingBox(deviceId: string, pairing: PairingInfo): string {
-  return `<div class="pair-box"><div><small>${t('pairTitle')}</small><div class="pair-code">${esc(pairing.pairingString)}</div><p>${t('pairHelp')}</p></div><div class="device-actions"><a class="btn secondary small" href="https://github.com/virus53111/Kredos/releases/download/agent-build-2/PhoneBridge-Agent.apk" target="_blank" rel="noopener">${t('downloadAgent')}</a><button class="btn primary small" data-action="copy-pair" data-device-id="${esc(deviceId)}">${t('copyPair')}</button></div></div>`;
+  return `<div class="pair-box"><div><small>${t('pairTitle')}</small><div class="pair-code">${esc(pairing.pairingString)}</div><p>${t('pairHelp')}</p></div><div class="device-actions"><a class="btn secondary small" href="https://github.com/virus53111/Kredos/releases/download/agent-build-5/PhoneBridge-Agent.apk" target="_blank" rel="noopener">${t('downloadAgent')}</a><button class="btn primary small" data-action="copy-pair" data-device-id="${esc(deviceId)}">${t('copyPair')}</button></div></div>`;
 }
 function render(): void { root.innerHTML = user ? dashboard() : landing(); bind(); }
 function bind(): void {
