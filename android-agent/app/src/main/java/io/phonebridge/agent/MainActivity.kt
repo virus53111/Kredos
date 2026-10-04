@@ -354,6 +354,19 @@ class MainActivity : Activity() {
                         "Enable remote control"
                 }
 
+            controlButton.text =
+                if (controlReady) {
+                    if (isRussian)
+                        "Удалённое управление включено ✓"
+                    else
+                        "Remote control enabled ✓"
+                } else {
+                    if (isRussian)
+                        "Разрешить удалённое управление"
+                    else
+                        "Enable remote control"
+                }
+
             statusText.text = buildString {
                 append(
                     if (isRussian)
@@ -400,6 +413,20 @@ Control: ready."
                         else
                             "
 Control: Accessibility permission required."
+                    }
+                )
+
+                append(
+                    if (controlReady) {
+                        if (isRussian)
+                            "\nУправление: готово."
+                        else
+                            "\nControl: ready."
+                    } else {
+                        if (isRussian)
+                            "\nУправление: требуется разрешение специальных возможностей."
+                        else
+                            "\nControl: Accessibility permission required."
                     }
                 )
 
@@ -462,6 +489,12 @@ Control: Accessibility permission required."
         startActivityForResult(
             manager.createScreenCaptureIntent(),
             SCREEN_CAPTURE_REQUEST
+        )
+    }
+
+    private fun requestRemoteControl() {
+        startActivity(
+            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         )
     }
 
