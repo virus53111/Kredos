@@ -249,5 +249,27 @@
       "Return to Catalog"
     ],
     "expected": "The session closes and the online phone becomes available again."
+  },
+  {
+    "name": "Active rental accepts remote touch controls",
+    "viewport": "mobile",
+    "covers": [
+      "protected viewer WebSocket",
+      "tap gesture relay",
+      "swipe gesture relay",
+      "Back and Home controls"
+    ],
+    "setup": [
+      "Start an active rental with a live PhoneBridge screen stream",
+      "Enable PhoneBridge Remote Control in Android Accessibility settings"
+    ],
+    "description": "Verifies the renter UI exposes direct touch gestures and navigation controls only inside the active rental screen.",
+    "steps": [
+      "Tap a visible point on the streamed Android screen",
+      "Swipe vertically on the streamed screen",
+      "Tap Back",
+      "Tap Home"
+    ],
+    "expected": "The browser sends normalized control commands through the active rental WebSocket while the rental remains active."
   }
 ]
