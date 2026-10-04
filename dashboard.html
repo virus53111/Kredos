@@ -22,6 +22,8 @@
   </header>
 
   <main class="dashboard-main dashboard-shell">
+    <div id="serverState" class="server-state hidden"></div>
+
     <div class="dash-head">
       <div>
         <div id="roleEyebrow" class="eyebrow"></div>
@@ -56,13 +58,60 @@
     <section id="hostDashboard" class="hidden">
       <div class="stat-grid">
         <div class="stat-card"><small data-t="earnings">Заработано</small><strong>$0.00</strong></div>
-        <div class="stat-card"><small data-t="devices">Телефоны</small><strong>0</strong></div>
+        <div class="stat-card"><small data-t="devices">Телефоны</small><strong id="deviceCount">0</strong></div>
         <div class="stat-card"><small data-t="paidHours">Оплаченных часов</small><strong>0.0</strong></div>
       </div>
+
+      <section id="addDevicePanel" class="panel hidden" style="margin-bottom:16px">
+        <div class="panel-title-row">
+          <div>
+            <div class="eyebrow" data-t="stage3">Этап 3</div>
+            <h2 data-t="addPhoneTitle">Добавить телефон</h2>
+          </div>
+          <button id="closeDeviceForm" class="btn btn-ghost compact" type="button" data-t="close">Закрыть</button>
+        </div>
+
+        <form id="deviceForm" class="device-form">
+          <div class="field">
+            <label for="deviceModel" data-t="model">Модель</label>
+            <input id="deviceModel" required maxlength="80" placeholder="Samsung Galaxy A54"/>
+          </div>
+          <div class="field">
+            <label for="deviceCountry" data-t="country">Страна</label>
+            <input id="deviceCountry" required maxlength="60" placeholder="Latvia"/>
+          </div>
+          <div class="field">
+            <label for="deviceAndroid" data-t="android">Версия Android</label>
+            <input id="deviceAndroid" required maxlength="30" placeholder="Android 14"/>
+          </div>
+          <div class="field">
+            <label for="deviceCarrier" data-t="carrier">Оператор</label>
+            <input id="deviceCarrier" maxlength="60" placeholder="Tele2"/>
+          </div>
+          <div class="field">
+            <label for="deviceNetwork" data-t="network">Интернет</label>
+            <select id="deviceNetwork" class="form-select">
+              <option value="5G">5G</option>
+              <option value="LTE">LTE</option>
+              <option value="Wi-Fi">Wi-Fi</option>
+            </select>
+          </div>
+          <div class="field form-action">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary full" type="submit" data-t="savePhone">Сохранить телефон</button>
+          </div>
+        </form>
+        <div id="deviceFormMessage" class="auth-error"></div>
+        <p class="auth-note" data-t="pendingText">После добавления телефон получает статус Pending. Реальное подключение Android-клиента будет на этапе 4.</p>
+      </section>
+
       <div class="panel-grid">
         <section class="panel">
-          <h2 data-t="myDevices">Мои телефоны</h2>
-          <div class="empty-box"><b data-t="noDevices">Телефонов пока нет</b><span data-t="noDevicesText">Добавление и онлайн-статус устройства подключим на этапе 3.</span></div>
+          <div class="panel-title-row">
+            <h2 data-t="myDevices">Мои телефоны</h2>
+            <button id="refreshDevices" class="btn btn-ghost compact" type="button" data-t="refresh">Обновить</button>
+          </div>
+          <div id="deviceList"></div>
         </section>
         <aside class="panel">
           <h2 data-t="payout">Выплаты</h2>
@@ -77,11 +126,13 @@
 
     <section class="panel" style="margin-top:16px">
       <h2 data-t="referral">Реферальная ссылка</h2>
-      <div class="ref-box"><div><small data-t="yourCode">Твой код</small><div id="refCode" class="ref-code"></div></div><button id="copyRef" class="btn btn-secondary" data-t="copy">Копировать</button></div>
+      <div class="ref-box">
+        <div><small data-t="yourCode">Твой код</small><div id="refCode" class="ref-code"></div></div>
+        <button id="copyRef" class="btn btn-secondary" data-t="copy">Копировать</button>
+      </div>
     </section>
   </main>
 
-  <script src="auth-core.js"></script>
-  <script src="dashboard.js"></script>
+  <script type="module" src="dashboard.js"></script>
 </body>
 </html>
