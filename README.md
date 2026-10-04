@@ -1,41 +1,62 @@
-# PhoneBridge — Stage 2
+# PhoneBridge — Stage 3
 
-Stage 1 design prototype for a two-sided marketplace where:
+Two-sided marketplace concept for remote access to real Android phones.
 
-- renters can choose a real Android device and rent it remotely;
-- phone owners can list eligible Android devices and earn only when a paid rental is active;
-- current concept pricing: **$1/hour** or **$10/24h**;
-- host share concept: **$0.50 per paid hour**;
-- supported UI languages: Russian, English, Latvian, Estonian, Lithuanian, Ukrainian.
+- renters: **$1/hour** or **$10/24h**;
+- host share: **$0.50 per paid hour**;
+- languages: Russian, English, Latvian, Estonian, Lithuanian, Ukrainian.
 
-## What is implemented now
+## Implemented
 
+### Stage 1 — Design
 - responsive landing page;
 - renter / host entry paths;
-- device cards and pricing presentation;
-- host earnings explainer;
-- referral program UI;
+- device cards and pricing;
+- host earnings explanation;
+- referral-program UI;
 - lawful-use notice;
-- working language selector with local persistence.\n- renter/host registration and login screens;\n- role-specific dashboards;\n- local session persistence and referral code generation;\n- PBKDF2 password hashing for the Stage 2 browser prototype.
+- six-language UI.
 
-## Not implemented yet
+### Stage 2 — Accounts & dashboards
+- renter / host registration screens;
+- role-specific dashboards;
+- referral code per account.
 
-Stage 2 auth is a browser-only prototype: accounts are stored locally on the current device. There is still no production server database, real network authentication, payments, device agent, remote-control gateway, session billing or payouts.
+### Stage 3 — Firebase & device database
+- real Firebase Email/Password Authentication;
+- Firebase session persistence across devices;
+- Firestore `users/{uid}` profiles;
+- Firestore `devices/{deviceId}` host phone records;
+- host device onboarding form;
+- device status starts as `pending`;
+- Firestore security rules scoped to account/device ownership;
+- manual GitHub Action for Firestore rules deployment.
 
-## Planned stages
+## Required before Firestore writes work
 
-1. **Design & UX** — current stage.
-2. **Accounts & database** — renter/host profiles, phone records, admin.
-4. **Device agent & presence** — Android client registration, online/offline state, verification.
-5. **Remote sessions** — secure session token, reservation, connection gateway, server-side timer.
-6. **Wallet & crypto payments** — deposits, ledger, hourly charging.
-7. **Host earnings & payouts** — $0.50/hour accounting, payout requests.
-8. **Referral engine** — host commissions and renter discounts.
-9. **Moderation & abuse controls** — device verification, usage rules, logs, bans, rate limits.
-10. **Production deployment & QA** — monitoring, backups, security review and end-to-end tests.
+Publish the new `firestore.rules` to Firebase project `kredos-3f3d6`.
 
-## Local preview
+See [FIREBASE_DEPLOY.md](FIREBASE_DEPLOY.md).
 
-Open `index.html` in a browser.
+Firebase Authentication can work independently, but Firestore will reject the new `users` / `devices` structure until those rules are published.
 
-> Placeholder brand name: **PhoneBridge**. It can be renamed before production.
+## Next stages
+
+4. **Android device agent & presence** — device registration token, heartbeat, online/offline status and verification.
+5. **Remote sessions** — secure reservation, remote-control gateway and server-side timer.
+6. **Crypto wallet & payments** — deposits, ledger and $1/hour billing.
+7. **Host earnings & payouts** — $0.50/hour accounting and withdrawals.
+8. **Referral engine** — host referral commission and renter discounts.
+9. **Moderation & abuse controls** — verification, usage rules, logs, bans and rate limits.
+10. **Production QA** — monitoring, backups, security review and end-to-end testing.
+
+## Files
+
+- `index.html` — public landing page.
+- `auth.html` — Firebase registration / sign-in.
+- `dashboard.html` — renter / host dashboard.
+- `firebase-client.js` — Firebase client integration.
+- `firestore.rules` — server-side database access rules.
+- `FIREBASE_DEPLOY.md` — deployment instructions.
+
+> **PhoneBridge** is currently a working project name and can be renamed before production.
