@@ -1,0 +1,14 @@
+{
+  "methods": ["google", "email"],
+  "headline": "PhoneBridge",
+  "subtitle": "Sign in to rent or list real Android devices",
+  "style": {
+    "mode": "dark",
+    "accentColor": "#7c5cff",
+    "backgroundColor": "#070c16",
+    "panelColor": "#0f1727",
+    "textColor": "#f7f8fc",
+    "fontFamily": "Inter, system-ui, sans-serif",
+    "borderRadius": 16
+  }
+}

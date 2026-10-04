@@ -1,0 +1,73 @@
+[
+  {
+    "name": "Host creates a phone listing and it persists",
+    "sanity": true,
+    "viewport": "desktop",
+    "covers": [
+      "authentication",
+      "profile creation",
+      "POST /api/profile",
+      "POST /api/devices",
+      "GET /api/devices",
+      "database persistence"
+    ],
+    "description": "Verifies the core host workflow creates a role and a durable phone record.",
+    "steps": [
+      "Sign in with the test identity",
+      "Choose Phone owner",
+      "Add Samsung Galaxy A54 in Latvia with Android 14 and 5G",
+      "Refresh the page"
+    ],
+    "expected": "Samsung Galaxy A54 remains visible with pending connection status after refresh."
+  },
+  {
+    "name": "Renter is kept out of host management",
+    "viewport": "desktop",
+    "covers": [
+      "authentication",
+      "role boundary",
+      "GET /api/profile",
+      "host-only device workflow"
+    ],
+    "description": "Verifies a renter receives the renter dashboard without host device management.",
+    "steps": [
+      "Sign in with a fresh test identity",
+      "Choose Renter",
+      "Open the dashboard"
+    ],
+    "expected": "The renter dashboard is visible and no Add phone form is shown."
+  },
+  {
+    "name": "Phone form rejects missing required details",
+    "viewport": "mobile",
+    "covers": [
+      "device validation",
+      "invalid-write guardrail",
+      "mobile form behavior"
+    ],
+    "setup": ["Sign in and choose Phone owner"],
+    "description": "Verifies incomplete device information is blocked and no phone is added.",
+    "steps": [
+      "Open Add phone",
+      "Leave Model empty while filling Country and Android version",
+      "Submit the form"
+    ],
+    "expected": "Required-field validation blocks submission and the phone count does not increase."
+  },
+  {
+    "name": "Language selection survives reload",
+    "viewport": "mobile",
+    "covers": [
+      "six-language interface",
+      "local language persistence",
+      "responsive header"
+    ],
+    "description": "Verifies the language selector changes and persists the interface language.",
+    "steps": [
+      "Change language from Russian to English",
+      "Confirm the rent action is in English",
+      "Refresh the page"
+    ],
+    "expected": "English remains selected and the interface stays in English."
+  }
+]
