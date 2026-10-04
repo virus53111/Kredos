@@ -789,7 +789,7 @@ function catalogCard(device: CatalogDevice): string {
       <p>${esc(meta)}</p>
 
       <div class="price-row">
-        <b>$${Number(device.hourlyRate || 1).toFixed(2)}</b>
+        <b>${Number(device.hourlyRate || 1).toFixed(2)}</b>
         <button
           class="btn ${canRent ? 'primary' : 'ghost'} small"
           data-action="rent-device"
