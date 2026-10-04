@@ -28,10 +28,24 @@ interface Device {
   hostRate: number;
   createdAt: string;
   bridgeKey?: string;
+  catalogId?: string;
   pairedAt?: string;
   agentId?: string;
   lastSeenAt?: string;
   lastAgentInfo?: AgentInfo;
+}
+
+interface CatalogDevice {
+  ownerId: string;
+  ownerDeviceId: string;
+  model: string;
+  country: string;
+  androidVersion: string;
+  carrier: string;
+  network: string;
+  hourlyRate: number;
+  bridgeKey: string;
+  createdAt: string;
 }
 
 interface AgentStatus {
@@ -41,6 +55,7 @@ interface AgentStatus {
 }
 
 const AGENT_API = 'https://phonebridge-agent-api.onrender.com';
+const CATALOG_TABLE = 'catalog_devices';
 const profileTable = (userId: string) => 'profiles_' + userId;
 const deviceTable = (userId: string) => 'devices_' + userId;
 
@@ -64,27 +79,6 @@ async function getOwnedDevice(
 ): Promise<Device | null> {
   const [device] = await db.get<Device>(deviceTable(ownerId), [deviceId]);
   return device;
-}
-
-async function ensureBridgeKey(
-  ownerId: string,
-  deviceId: string,
-  device: Device
-): Promise<Device> {
-  if (device.bridgeKey) return device;
-
-  const updated: Device = {
-    ...device,
-    bridgeKey: makeBridgeKey(),
-  };
-  const [ok] = await db.update(deviceTable(ownerId), [
-    {
-      id: deviceId,
-      record: updated,
-    },
-  ]);
-  if (!ok) throw new Error('bridge_key_update_failed');
-  return updated;
 }
 
 async function agentRequest<T>(
@@ -122,11 +116,16 @@ async function agentRequest<T>(
   return data as T;
 }
 
-function publicDevice(
+function safeOwnedDevice(
   device: Device & { id: string },
   status?: AgentStatus
 ) {
-  const { bridgeKey: _bridgeKey, ...safe } = device;
+  const {
+    bridgeKey: _bridgeKey,
+    catalogId: _catalogId,
+    ...safe
+  } = device;
+
   return {
     ...safe,
     connectionStatus:
@@ -137,8 +136,106 @@ function publicDevice(
   };
 }
 
+function safeCatalogDevice(
+  item: CatalogDevice & { id: string },
+  status: AgentStatus
+) {
+  const { bridgeKey: _bridgeKey, ownerId: _ownerId, ...safe } = item;
+  return {
+    ...safe,
+    connectionStatus: status.connectionStatus,
+    lastSeenAt: status.lastSeenAt || null,
+    available: status.connectionStatus === 'online',
+  };
+}
+
+async function ensureCatalogDevice(
+  ownerId: string,
+  device: Device & { id: string }
+): Promise<Device & { id: string }> {
+  let next: Device & { id: string } = device;
+
+  if (!next.bridgeKey) {
+    next = {
+      ...next,
+      bridgeKey: makeBridgeKey(),
+    };
+  }
+
+  if (!next.catalogId) {
+    const catalogRecord: CatalogDevice = {
+      ownerId,
+      ownerDeviceId: next.id,
+      model: next.model,
+      country: next.country,
+      androidVersion: next.androidVersion,
+      carrier: next.carrier,
+      network: next.network,
+      hourlyRate: next.hourlyRate,
+      bridgeKey: next.bridgeKey!,
+      createdAt: next.createdAt,
+    };
+    const [catalogId] = await db.add(CATALOG_TABLE, [catalogRecord]);
+    if (!catalogId) throw new Error('catalog_create_failed');
+    next = {
+      ...next,
+      catalogId,
+    };
+  }
+
+  if (
+    next.bridgeKey !== device.bridgeKey ||
+    next.catalogId !== device.catalogId
+  ) {
+    const { id, ...record } = next;
+    const [updated] = await db.update(deviceTable(ownerId), [
+      {
+        id,
+        record,
+      },
+    ]);
+    if (!updated) throw new Error('device_catalog_sync_failed');
+  }
+
+  return next;
+}
+
 export const handler = router({
   'GET /api/_healthcheck': [async () => json({ message: 'Success' })],
+
+  'GET /api/catalog': [
+    async () => {
+      const { items } = await db.list<CatalogDevice>(CATALOG_TABLE, {
+        limit: 100,
+      });
+
+      const catalog = await Promise.all(
+        items.map(async item => {
+          try {
+            const status = await agentRequest<AgentStatus>('/status', {
+              deviceId: item.ownerDeviceId,
+              deviceKey: item.bridgeKey,
+            });
+            return safeCatalogDevice(item, status);
+          } catch {
+            return safeCatalogDevice(item, {
+              connectionStatus: 'offline',
+              lastSeenAt: null,
+            });
+          }
+        })
+      );
+
+      return json({
+        devices: catalog
+          .filter(device => device.connectionStatus !== 'pending')
+          .sort((a, b) => {
+            if (a.available === b.available) return 0;
+            return a.available ? -1 : 1;
+          }),
+      });
+    },
+  ],
 
   'GET /api/profile': [
     requireAuth(),
@@ -178,9 +275,17 @@ export const handler = router({
       });
 
       const devices = await Promise.all(
-        items.map(async device => {
+        items.map(async original => {
+          let device = original as Device & { id: string };
+
+          try {
+            device = await ensureCatalogDevice(ctx.user!.userId, device);
+          } catch {
+            // Keep the owner dashboard usable even if catalog sync fails.
+          }
+
           if (!device.bridgeKey) {
-            return publicDevice(device as Device & { id: string });
+            return safeOwnedDevice(device);
           }
 
           try {
@@ -188,9 +293,9 @@ export const handler = router({
               deviceId: device.id,
               deviceKey: device.bridgeKey,
             });
-            return publicDevice(device as Device & { id: string }, status);
+            return safeOwnedDevice(device, status);
           } catch {
-            return publicDevice(device as Device & { id: string }, {
+            return safeOwnedDevice(device, {
               connectionStatus:
                 device.status === 'paired' ? 'offline' : 'pending',
               lastSeenAt: device.lastSeenAt || null,
@@ -235,10 +340,19 @@ export const handler = router({
         createdAt: new Date().toISOString(),
         bridgeKey: makeBridgeKey(),
       };
+
       const [id] = await db.add(deviceTable(ctx.user!.userId), [record]);
       if (!id) return error('device_create_failed', 500);
+
+      let device = { id, ...record };
+      try {
+        device = await ensureCatalogDevice(ctx.user!.userId, device);
+      } catch {
+        // GET /api/devices retries catalog synchronization later.
+      }
+
       return json({
-        device: publicDevice({ id, ...record }),
+        device: safeOwnedDevice(device),
       }, 201);
     },
   ],
@@ -253,11 +367,11 @@ export const handler = router({
       if (!existing) return error('device_not_found', 404);
 
       try {
-        const device = await ensureBridgeKey(
-          ctx.user!.userId,
-          ctx.params.id,
-          existing
-        );
+        const device = await ensureCatalogDevice(ctx.user!.userId, {
+          id: ctx.params.id,
+          ...existing,
+        });
+
         const pairing = await agentRequest<{
           pairingString: string;
           expiresAt: string;
