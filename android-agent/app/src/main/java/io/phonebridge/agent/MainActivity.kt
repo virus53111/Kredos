@@ -114,6 +114,21 @@ class MainActivity : Activity() {
             )
         )
 
+        val version = TextView(this).apply {
+            text = "v" + BuildConfig.VERSION_NAME
+            textSize = 12f
+            setTextColor(Color.rgb(124, 92, 255))
+            gravity = Gravity.CENTER
+            setPadding(0, dp(6), 0, 0)
+        }
+        root.addView(
+            version,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+
         val info = TextView(this).apply {
             text = if (isRussian)
                 "Agent держит телефон Online. Разреши трансляцию экрана — " +
