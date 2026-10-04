@@ -11,10 +11,29 @@ android {
         applicationId = "io.phonebridge.agent"
         minSdk = 31
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
 
-        buildConfigField("String", "API_BASE_URL", "\"https://phonebridge-agent-api.onrender.com\"")
+        buildConfigField(
+            "String",
+            "API_BASE_URL",
+            "\"https://phonebridge-agent-api.onrender.com\""
+        )
+    }
+
+    signingConfigs {
+        create("phonebridge") {
+            storeFile = file("../phonebridge-test.jks")
+            storePassword = "phonebridge-test-2026"
+            keyAlias = "phonebridge"
+            keyPassword = "phonebridge-test-2026"
+        }
+    }
+
+    buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("phonebridge")
+        }
     }
 
     buildFeatures {
