@@ -11,6 +11,7 @@ if (!process.env.PB_AGENT_SECRET) {
 
 const lastSeen = new Map();
 const usedPairings = new Set();
+const reservations = new Map();
 
 function b64url(input) {
   return Buffer.from(input).toString('base64url');
@@ -203,6 +204,99 @@ async function handle(req, res) {
     });
   }
 
+  if (req.method === 'POST' && req.url === '/reserve') {
+    const body = await readJson(req);
+    const deviceId = String(body.deviceId || '').trim();
+    const deviceKey = String(body.deviceKey || '').trim();
+    const renterId = String(body.renterId || '').trim();
+
+    if (!deviceId || deviceKey.length < 32 || !renterId) {
+      return json(res, 400, { error: 'invalid_reservation' });
+    }
+
+    const state = lastSeen.get(deviceId);
+    if (!state || state.keyHash !== hashKey(deviceKey)) {
+      return json(res, 409, { error: 'device_not_ready' });
+    }
+
+    if (Date.now() - state.ts > 120_000) {
+      return json(res, 409, { error: 'device_offline' });
+    }
+
+    const existing = reservations.get(deviceId);
+    if (existing) {
+      return json(res, 409, { error: 'device_busy' });
+    }
+
+    const sessionId = randomId();
+    const startedAt = Date.now();
+    reservations.set(deviceId, {
+      sessionId,
+      renterId,
+      keyHash: hashKey(deviceKey),
+      startedAt
+    });
+
+    console.log('[reserve]', deviceId, sessionId);
+
+    return json(res, 200, {
+      sessionId,
+      startedAt: new Date(startedAt).toISOString()
+    });
+  }
+
+  if (req.method === 'POST' && req.url === '/release') {
+    const body = await readJson(req);
+    const deviceId = String(body.deviceId || '').trim();
+    const deviceKey = String(body.deviceKey || '').trim();
+    const sessionId = String(body.sessionId || '').trim();
+
+    if (!deviceId || deviceKey.length < 32 || !sessionId) {
+      return json(res, 400, { error: 'invalid_release' });
+    }
+
+    const current = reservations.get(deviceId);
+    if (!current) {
+      return json(res, 200, { released: true });
+    }
+
+    if (
+      current.sessionId !== sessionId ||
+      current.keyHash !== hashKey(deviceKey)
+    ) {
+      return json(res, 403, { error: 'release_not_allowed' });
+    }
+
+    reservations.delete(deviceId);
+    console.log('[release]', deviceId, sessionId);
+    return json(res, 200, { released: true });
+  }
+
+  if (req.method === 'POST' && req.url === '/agent/session') {
+    const body = await readJson(req);
+    let agent;
+    try {
+      agent = verifyToken(String(body.deviceToken || ''), 'agent');
+    } catch (error) {
+      return json(res, 401, { error: error.message });
+    }
+
+    if (String(body.agentId || '') !== agent.agentId) {
+      return json(res, 401, { error: 'agent_id_mismatch' });
+    }
+
+    const current = reservations.get(agent.deviceId);
+    return json(res, 200, {
+      active: Boolean(current),
+      session: current
+        ? {
+            sessionId: current.sessionId,
+            startedAt: new Date(current.startedAt).toISOString()
+          }
+        : null
+    });
+  }
+
   if (req.method === 'POST' && req.url === '/status') {
     const body = await readJson(req);
     const deviceId = String(body.deviceId || '').trim();
@@ -216,15 +310,21 @@ async function handle(req, res) {
       return json(res, 200, {
         connectionStatus: 'pending',
         lastSeenAt: null,
-        agentInfo: null
+        agentInfo: null,
+        busy: false,
+        sessionId: null
       });
     }
 
     const online = Date.now() - state.ts <= 120_000;
+    const current = reservations.get(deviceId);
+
     return json(res, 200, {
       connectionStatus: online ? 'online' : 'offline',
       lastSeenAt: new Date(state.ts).toISOString(),
-      agentInfo: state.agentInfo
+      agentInfo: state.agentInfo,
+      busy: Boolean(current),
+      sessionId: current?.sessionId || null
     });
   }
 
