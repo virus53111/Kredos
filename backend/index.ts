@@ -393,4 +393,42 @@ export const handler = router({
       }
     },
   ],
+
+  'DELETE /api/devices/:id': [
+    requireAuth(),
+    async ctx => {
+      const profile = await getProfile(ctx.user!.userId);
+      if (!profile || profile.role !== 'host') return error('host_only', 403);
+
+      const existing = await getOwnedDevice(ctx.user!.userId, ctx.params.id);
+      if (!existing) return error('device_not_found', 404);
+
+      let catalogIds: string[] = [];
+      if (existing.catalogId) {
+        catalogIds = [existing.catalogId];
+      } else {
+        const { items } = await db.list<CatalogDevice>(CATALOG_TABLE, {
+          limit: 100,
+        });
+        catalogIds = items
+          .filter(
+            item =>
+              item.ownerId === ctx.user!.userId &&
+              item.ownerDeviceId === ctx.params.id
+          )
+          .map(item => item.id);
+      }
+
+      if (catalogIds.length) {
+        await db.delete(CATALOG_TABLE, catalogIds);
+      }
+
+      const [deleted] = await db.delete(deviceTable(ctx.user!.userId), [
+        ctx.params.id,
+      ]);
+      if (!deleted) return error('device_delete_failed', 500);
+
+      return json({ deleted: true });
+    },
+  ],
 });
