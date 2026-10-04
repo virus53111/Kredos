@@ -55,9 +55,9 @@ class MainActivity : Activity() {
 
         val info = TextView(this).apply {
             text = if (isRussian)
-                "Приложение только привязывает телефон к PhoneBridge и отправляет heartbeat. Оно не читает SMS, контакты или аккаунты."
+                "Вставь код привязки с сайта. Agent отправляет только технический heartbeat и данные модели Android."
             else
-                "This app only pairs the phone with PhoneBridge and sends heartbeats. It does not read SMS, contacts, or accounts."
+                "Paste the pairing code from the website. The Agent sends only technical heartbeat and Android device metadata."
             textSize = 14f
             setTextColor(Color.rgb(160, 174, 192))
             setPadding(0, dp(18), 0, dp(22))
@@ -65,11 +65,11 @@ class MainActivity : Activity() {
         root.addView(info)
 
         pairingInput = EditText(this).apply {
-            hint = if (isRussian) "Вставь код привязки с сайта" else "Paste pairing code from the website"
+            hint = if (isRussian) "Код привязки" else "Pairing code"
             setHintTextColor(Color.rgb(110, 125, 145))
             setTextColor(Color.WHITE)
             setSingleLine(false)
-            minLines = 2
+            minLines = 3
             setPadding(dp(14), dp(14), dp(14), dp(14))
             setBackgroundColor(Color.rgb(17, 27, 45))
         }
@@ -97,20 +97,17 @@ class MainActivity : Activity() {
 
     private fun pairDevice() {
         val pairing = pairingInput.text.toString().trim()
-        val separator = pairing.lastIndexOf('.')
-        if (separator <= 0 || separator >= pairing.length - 1) {
+        if (pairing.length < 40 || !pairing.contains(".")) {
             statusText.text = if (isRussian) "Неверный код привязки" else "Invalid pairing code"
             return
         }
 
-        val pairingId = pairing.substring(0, separator)
-        val code = pairing.substring(separator + 1)
         actionButton.isEnabled = false
         statusText.text = if (isRussian) "Подключение…" else "Connecting…"
 
         Thread {
             try {
-                val result = ApiClient.claim(pairingId, code)
+                val result = ApiClient.claim(pairing)
                 getSharedPreferences(HeartbeatService.PREFS, MODE_PRIVATE)
                     .edit()
                     .putString(HeartbeatService.KEY_AGENT_ID, result.agentId)
