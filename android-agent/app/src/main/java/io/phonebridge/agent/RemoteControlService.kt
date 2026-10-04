@@ -2,7 +2,10 @@ package io.phonebridge.agent
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.ComponentName
+import android.content.Context
 import android.graphics.Path
+import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
 import org.json.JSONObject
 
@@ -122,6 +125,22 @@ class RemoteControlService : AccessibilityService() {
 
         fun handleCommand(raw: String) {
             instance?.execute(raw)
+        }
+
+        fun isEnabled(context: Context): Boolean {
+            val expected = ComponentName(
+                context,
+                RemoteControlService::class.java
+            ).flattenToString()
+
+            val enabled = Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            ) ?: return false
+
+            return enabled
+                .split(':')
+                .any { it.equals(expected, ignoreCase = true) }
         }
     }
 }
