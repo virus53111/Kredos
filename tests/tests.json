@@ -208,5 +208,46 @@
       "Open Catalog"
     ],
     "expected": "The phone disappears from My phones and no longer appears in Catalog."
+  },
+  {
+    "name": "Online phone can be reserved by one renter",
+    "sanity": false,
+    "viewport": "mobile",
+    "covers": [
+      "POST /api/rentals/start",
+      "Render /reserve",
+      "GET /api/catalog",
+      "device busy state"
+    ],
+    "setup": [
+      "Have one PhoneBridge Agent online in Catalog",
+      "Sign in to PhoneBridge"
+    ],
+    "description": "Verifies starting a rental locks that physical phone and opens an active timed session.",
+    "steps": [
+      "Open Catalog",
+      "Tap Rent on the online phone"
+    ],
+    "expected": "A Remote session screen opens, the timer starts, and the same phone is marked Busy for other renters."
+  },
+  {
+    "name": "Renter can end an active rental",
+    "sanity": false,
+    "viewport": "mobile",
+    "covers": [
+      "POST /api/rentals/:id/end",
+      "Render /release",
+      "metered timer"
+    ],
+    "setup": [
+      "Start an active rental"
+    ],
+    "description": "Verifies ending a rental releases the phone and stops the session.",
+    "steps": [
+      "Wait a few seconds",
+      "Tap End rental",
+      "Return to Catalog"
+    ],
+    "expected": "The session closes and the online phone becomes available again."
   }
 ]
