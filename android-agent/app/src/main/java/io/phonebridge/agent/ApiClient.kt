@@ -13,13 +13,12 @@ object ApiClient {
         val heartbeatSeconds: Int
     )
 
-    fun claim(pairingId: String, code: String): ClaimResult {
+    fun claim(pairingString: String): ClaimResult {
         val body = JSONObject()
-            .put("pairingId", pairingId)
-            .put("code", code)
+            .put("pairingString", pairingString)
             .put("agentInfo", agentInfo())
 
-        val response = post("/api/agent/claim", body)
+        val response = post("/claim", body)
         return ClaimResult(
             agentId = response.getString("agentId"),
             deviceToken = response.getString("deviceToken"),
@@ -32,7 +31,7 @@ object ApiClient {
             .put("agentId", agentId)
             .put("deviceToken", deviceToken)
             .put("agentInfo", agentInfo())
-        return post("/api/agent/heartbeat", body)
+        return post("/heartbeat", body)
     }
 
     private fun agentInfo(): JSONObject = JSONObject()
@@ -44,8 +43,8 @@ object ApiClient {
     private fun post(path: String, body: JSONObject): JSONObject {
         val connection = (URL(BuildConfig.API_BASE_URL + path).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
-            connectTimeout = 15_000
-            readTimeout = 15_000
+            connectTimeout = 25_000
+            readTimeout = 25_000
             doOutput = true
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
             setRequestProperty("Accept", "application/json")
