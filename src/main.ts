@@ -1,5 +1,6 @@
 import './styles.css';
 import { api, auth } from '@appdeploy/client';
+import { bindRemoteTouch } from './remote-control';
 
 type Role = 'renter' | 'host';
 type View = 'home' | 'dashboard' | 'catalog' | 'session';
@@ -152,6 +153,9 @@ const words: Record<string, Record<string, string>> = {
     endSession: 'Завершить аренду',
     remotePreparing: 'Ожидание трансляции с телефона. На телефоне владельца должен быть включён Screen sharing в Agent.',
     fullscreen: 'На весь экран',
+    remoteBack: 'Назад',
+    remoteHome: 'Домой',
+    controlHint: 'Нажимай и свайпай прямо по экрану телефона',
   },
   en: {
     signIn: 'Sign in',
@@ -229,6 +233,9 @@ const words: Record<string, Record<string, string>> = {
     endSession: 'End rental',
     remotePreparing: 'Waiting for the phone stream. Screen sharing must be enabled in the owner Agent.',
     fullscreen: 'Fullscreen',
+    remoteBack: 'Back',
+    remoteHome: 'Home',
+    controlHint: 'Tap and swipe directly on the phone screen',
   },
   lv: {
     signIn: 'Ieiet',
@@ -304,6 +311,9 @@ const words: Record<string, Record<string, string>> = {
     endSession: 'Beigt nomu',
     remotePreparing: 'Dzīvais tālruņa ekrāns ir nākamais solis. Rezervācija un taimeris jau darbojas.',
     fullscreen: 'Pilnekrāns',
+    remoteBack: 'Atpakaļ',
+    remoteHome: 'Sākums',
+    controlHint: 'Spied un velc tieši pa tālruņa ekrānu',
   },
   et: {
     signIn: 'Logi sisse',
@@ -379,6 +389,9 @@ const words: Record<string, Record<string, string>> = {
     endSession: 'Lõpeta rent',
     remotePreparing: 'Telefoni otsepilt on järgmine samm. Broneering ja taimer juba töötavad.',
     fullscreen: 'Täisekraan',
+    remoteBack: 'Tagasi',
+    remoteHome: 'Avaleht',
+    controlHint: 'Puuduta ja libista otse telefoni ekraanil',
   },
   lt: {
     signIn: 'Prisijungti',
@@ -454,6 +467,9 @@ const words: Record<string, Record<string, string>> = {
     endSession: 'Baigti nuomą',
     remotePreparing: 'Gyvas telefono ekranas yra kitas žingsnis. Rezervacija ir laikmatis jau veikia.',
     fullscreen: 'Visas ekranas',
+    remoteBack: 'Atgal',
+    remoteHome: 'Pradžia',
+    controlHint: 'Bakstelėk ir brauk tiesiai telefono ekrane',
   },
   uk: {
     signIn: 'Увійти',
@@ -529,6 +545,9 @@ const words: Record<string, Record<string, string>> = {
     endSession: 'Завершити оренду',
     remotePreparing: 'Живий екран телефона підключаємо наступним кроком. Бронювання і таймер уже працюють.',
     fullscreen: 'На весь екран',
+    remoteBack: 'Назад',
+    remoteHome: 'Додому',
+    controlHint: 'Натискай і свайпай прямо по екрану телефона',
   },
 };
 
@@ -559,7 +578,7 @@ let phoneDraft: PhoneDraft = {
 };
 
 const pairings = new Map<string, PairingInfo>();
-const AGENT_APK_URL = 'https://github.com/virus53111/Kredos/releases/download/agent-build-27/PhoneBridge-Agent.apk';
+const AGENT_APK_URL = 'https://github.com/virus53111/Kredos/releases/download/agent-build-40/PhoneBridge-Agent.apk';
 
 function t(key: string): string {
   return words[lang]?.[key] || words.en[key] || key;
@@ -839,6 +858,15 @@ function sessionView(): string {
                 ${t('fullscreen')}
               </button>
             </div>
+          </div>
+          <div class="remote-control-bar">
+            <button class="btn secondary small" data-action="remote-back">
+              ← ${t('remoteBack')}
+            </button>
+            <span>${t('controlHint')}</span>
+            <button class="btn secondary small" data-action="remote-home">
+              ⌂ ${t('remoteHome')}
+            </button>
           </div>
         </section>
 
@@ -1336,6 +1364,14 @@ function bind(): void {
           await screen.requestFullscreen();
         }
       }
+
+      if (action === 'remote-back') {
+        sendRemoteCommand({ type: 'back' });
+      }
+
+      if (action === 'remote-home') {
+        sendRemoteCommand({ type: 'home' });
+      }
     });
   });
 
@@ -1361,6 +1397,12 @@ function bind(): void {
       phoneDraft[key] = field.value;
     }
   });
+
+  bindRemoteTouch(
+    '#remote-screen',
+    '#remote-stream',
+    sendRemoteCommand
+  );
 }
 
 async function start(preferred: Role | null): Promise<void> {
@@ -1531,7 +1573,7 @@ function startSessionClock(): void {
     }
     if (cost) {
       cost.textContent =
-        '' + sessionCost(activeSession).toFixed(4);
+        '
     }
   }, 1000);
 }
@@ -1541,6 +1583,240 @@ function stopSessionClock(): void {
     window.clearInterval(sessionClockTimer);
     sessionClockTimer = null;
   }
+}
+
+function sendRemoteCommand(
+  command: Record<string, unknown>
+): boolean {
+  if (
+    !viewerSocket ||
+    viewerSocket.readyState !== WebSocket.OPEN
+  ) {
+    return false;
+  }
+
+  viewerSocket.send(JSON.stringify(command));
+  return true;
+}
+
+function connectViewerSocket(): void {
+  if (!activeSession?.viewerToken) return;
+
+  if (
+    viewerSocket &&
+    viewerSessionId === activeSession.renderSessionId &&
+    (
+      viewerSocket.readyState === WebSocket.OPEN ||
+      viewerSocket.readyState === WebSocket.CONNECTING
+    )
+  ) {
+    return;
+  }
+
+  stopViewerSocket();
+
+  viewerSessionId = activeSession.renderSessionId;
+  const token = encodeURIComponent(activeSession.viewerToken);
+  viewerSocket = new WebSocket(
+    'wss://phonebridge-agent-api.onrender.com/ws' +
+      '?role=viewer&token=' + token
+  );
+  viewerSocket.binaryType = 'blob';
+
+  viewerSocket.onmessage = event => {
+    if (!(event.data instanceof Blob)) return;
+
+    const nextUrl = URL.createObjectURL(event.data);
+    const image =
+      document.querySelector<HTMLImageElement>('#remote-stream');
+    const wait =
+      document.querySelector<HTMLElement>('#remote-wait');
+
+    if (!image) {
+      URL.revokeObjectURL(nextUrl);
+      return;
+    }
+
+    const previous = lastFrameUrl;
+    lastFrameUrl = nextUrl;
+    image.src = nextUrl;
+    image.style.display = 'block';
+    if (wait) wait.style.display = 'none';
+
+    if (previous) {
+      window.setTimeout(
+        () => URL.revokeObjectURL(previous),
+        1000
+      );
+    }
+  };
+
+  viewerSocket.onclose = () => {
+    viewerSocket = null;
+  };
+
+  viewerSocket.onerror = () => {
+    // The UI keeps showing the waiting state and reconnects on render.
+  };
+}
+
+function stopViewerSocket(): void {
+  if (viewerSocket) {
+    viewerSocket.close(1000, 'view_closed');
+    viewerSocket = null;
+  }
+  viewerSessionId = null;
+
+  if (lastFrameUrl) {
+    URL.revokeObjectURL(lastFrameUrl);
+    lastFrameUrl = null;
+  }
+}
+
+async function openCatalog(): Promise<void> {
+  currentView = 'catalog';
+  catalogMessage = '';
+  await loadCatalog();
+  startRefresh();
+  render();
+}
+
+function startRefresh(): void {
+  stopRefresh();
+
+  refreshTimer = window.setInterval(async () => {
+    try {
+      if (
+        currentView === 'dashboard' &&
+        user &&
+        profile?.role === 'host'
+      ) {
+        await loadDevices();
+      } else if (
+        currentView === 'catalog' ||
+        currentView === 'home'
+      ) {
+        await loadCatalog();
+      } else if (currentView === 'session') {
+        await loadActiveRental();
+
+        if (!activeSession) {
+          currentView = 'catalog';
+          await loadCatalog();
+        }
+      }
+
+      render();
+    } catch (error) {
+      console.error(error);
+    }
+  }, 30_000);
+}
+
+function stopRefresh(): void {
+  if (refreshTimer !== null) {
+    window.clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+}
+
+async function createPairing(deviceId: string): Promise<void> {
+  try {
+    const response = await api.post(
+      '/api/devices/' + encodeURIComponent(deviceId) + '/pair',
+      {}
+    );
+
+    pairings.set(deviceId, response.data.pairing);
+    message = '';
+    render();
+  } catch (error) {
+    console.error(error);
+    message = t('error');
+    render();
+  }
+}
+
+async function submitPhone(event: Event): Promise<void> {
+  event.preventDefault();
+
+  const form = event.currentTarget as HTMLFormElement;
+  const data = new FormData(form);
+
+  const payload = {
+    model: String(data.get('model') || '').trim(),
+    country: String(data.get('country') || '').trim(),
+    androidVersion: String(
+      data.get('androidVersion') || ''
+    ).trim(),
+    carrier: String(data.get('carrier') || '').trim(),
+    network: String(data.get('network') || '').trim(),
+  };
+
+  try {
+    await api.post('/api/devices', payload);
+    await loadDevices();
+
+    phoneDraft = {
+      model: '',
+      country: '',
+      androidVersion: '',
+      carrier: '',
+      network: '5G',
+    };
+
+    message = t('saved');
+    formOpen = true;
+    render();
+  } catch (error) {
+    console.error(error);
+    message = t('error');
+    render();
+  }
+}
+
+async function boot(): Promise<void> {
+  user = await auth.getUser();
+
+  if (user) {
+    await loadProfile();
+    await loadActiveRental();
+    currentView =
+      activeSession ? 'session' : 'dashboard';
+  } else {
+    currentView = 'home';
+  }
+
+  await loadCatalog();
+  startRefresh();
+  render();
+}
+
+void boot();
+ + sessionCost(activeSession).toFixed(4);
+    }
+  }, 1000);
+}
+
+function stopSessionClock(): void {
+  if (sessionClockTimer !== null) {
+    window.clearInterval(sessionClockTimer);
+    sessionClockTimer = null;
+  }
+}
+
+function sendRemoteCommand(
+  command: Record<string, unknown>
+): boolean {
+  if (
+    !viewerSocket ||
+    viewerSocket.readyState !== WebSocket.OPEN
+  ) {
+    return false;
+  }
+
+  viewerSocket.send(JSON.stringify(command));
+  return true;
 }
 
 function connectViewerSocket(): void {
