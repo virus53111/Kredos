@@ -401,24 +401,6 @@ class MainActivity : Activity() {
                 append(
                     if (controlReady) {
                         if (isRussian)
-                            "
-Управление: готово."
-                        else
-                            "
-Control: ready."
-                    } else {
-                        if (isRussian)
-                            "
-Управление: нужно разрешение специальных возможностей."
-                        else
-                            "
-Control: Accessibility permission required."
-                    }
-                )
-
-                append(
-                    if (controlReady) {
-                        if (isRussian)
                             "\nУправление: готово."
                         else
                             "\nControl: ready."
@@ -489,12 +471,6 @@ Control: Accessibility permission required."
         startActivityForResult(
             manager.createScreenCaptureIntent(),
             SCREEN_CAPTURE_REQUEST
-        )
-    }
-
-    private fun requestRemoteControl() {
-        startActivity(
-            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         )
     }
 
