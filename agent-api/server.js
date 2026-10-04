@@ -165,6 +165,7 @@ async function handle(req, res) {
       agentId,
       agentInfo: cleanInfo(body.agentInfo)
     });
+    console.log('[claim]', pairing.deviceId, cleanInfo(body.agentInfo));
 
     return json(res, 200, {
       agentId,
@@ -193,6 +194,7 @@ async function handle(req, res) {
       agentId: agent.agentId,
       agentInfo: cleanInfo(body.agentInfo)
     });
+    console.log('[heartbeat]', agent.deviceId, cleanInfo(body.agentInfo));
 
     return json(res, 200, {
       ok: true,
