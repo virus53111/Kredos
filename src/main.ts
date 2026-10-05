@@ -1,6 +1,11 @@
 import './styles.css';
 import { api, auth } from '@appdeploy/client';
 import { bindRemoteTouch } from './remote-control';
+import {
+  connectSolflare,
+  sendSolPayment,
+  signSolflareMessage,
+} from './solana-wallet';
 
 type Role = 'renter' | 'host';
 type View = 'home' | 'dashboard' | 'catalog' | 'session';
@@ -60,6 +65,33 @@ type RentalSession = {
   hostAmount?: number;
   selfTest: boolean;
   billingMode?: 'self_test' | 'metered';
+};
+
+type MoneyAccount = {
+  linkedWallet?: string | null;
+  renterBalanceUsd: number;
+  hostBalanceUsd: number;
+};
+
+type WithdrawalRequest = {
+  id: string;
+  walletAddress: string;
+  usdAmount: number;
+  quotedSol: number;
+  status: string;
+  createdAt: string;
+  paidAt?: string | null;
+  paidTxSignature?: string | null;
+  paidSolAmount?: number | null;
+};
+
+type AdminWithdrawal = {
+  id: string;
+  email: string;
+  walletAddress: string;
+  usdAmount: number;
+  quotedSol: number;
+  createdAt: string;
 };
 
 type PairingInfo = {
@@ -164,6 +196,29 @@ const words: Record<string, Record<string, string>> = {
     makeAvailable: 'Сделать доступным',
     stopListing: 'Не сдавать',
     notAvailable: 'Не сдаётся',
+    walletTitle: 'Solana / Solflare',
+    connectWallet: 'Подключить Solflare',
+    connectedWallet: 'Подключённый кошелёк',
+    deposit: 'Пополнить баланс',
+    depositAmount: 'Сумма пополнения, USD',
+    paySol: 'Оплатить SOL',
+    depositHelp: 'SOL уйдёт прямо на кошелёк PhoneBridge. Баланс зачислится только после подтверждения транзакции в Solana.',
+    withdraw: 'Вывести',
+    withdrawAmount: 'Сумма вывода, USD',
+    payoutWallet: 'Кошелёк для вывода',
+    withdrawalPending: 'Заявка на вывод отправлена',
+    withdrawalHistory: 'Заявки на вывод',
+    adminPayments: 'Выплаты владельцам',
+    adminUnlock: 'Открыть админ-панель через главный Solflare',
+    adminHelp: 'Для доступа подпиши сообщение кошельком PhoneBridge. Приватный ключ сайту не передаётся.',
+    markPaid: 'Отметить выплаченным',
+    reject: 'Отклонить',
+    txSignature: 'Подпись транзакции',
+    solSent: 'Отправлено SOL',
+    copyWallet: 'Копировать адрес',
+    noWithdrawals: 'Нет заявок на вывод',
+    insufficientBalance: 'Недостаточно баланса. Пополни минимум на $1.',
+    paymentError: 'Ошибка платежа. Проверь Solflare и попробуй ещё раз.',
   },
   en: {
     signIn: 'Sign in',
@@ -250,6 +305,29 @@ const words: Record<string, Record<string, string>> = {
     makeAvailable: 'Make available',
     stopListing: 'Stop renting',
     notAvailable: 'Not for rent',
+    walletTitle: 'Solana / Solflare',
+    connectWallet: 'Connect Solflare',
+    connectedWallet: 'Connected wallet',
+    deposit: 'Add balance',
+    depositAmount: 'Top-up amount, USD',
+    paySol: 'Pay with SOL',
+    depositHelp: 'SOL goes directly to the PhoneBridge treasury wallet. Balance is credited only after the Solana transaction is verified.',
+    withdraw: 'Withdraw',
+    withdrawAmount: 'Withdrawal amount, USD',
+    payoutWallet: 'Payout wallet',
+    withdrawalPending: 'Withdrawal request submitted',
+    withdrawalHistory: 'Withdrawal requests',
+    adminPayments: 'Host payouts',
+    adminUnlock: 'Open admin panel with treasury Solflare',
+    adminHelp: 'Sign a message with the PhoneBridge treasury wallet. The private key never leaves Solflare.',
+    markPaid: 'Mark paid',
+    reject: 'Reject',
+    txSignature: 'Transaction signature',
+    solSent: 'SOL sent',
+    copyWallet: 'Copy address',
+    noWithdrawals: 'No withdrawal requests',
+    insufficientBalance: 'Insufficient balance. Add at least $1.',
+    paymentError: 'Payment error. Check Solflare and try again.',
   },
   lv: {
     signIn: 'Ieiet',
@@ -608,6 +686,13 @@ let viewerSessionId: string | null = null;
 let lastFrameUrl: string | null = null;
 let viewerReconnectTimer: number | null = null;
 let viewerReconnectAttempt = 0;
+let moneyAccount: MoneyAccount | null = null;
+let treasuryWallet = '';
+let solflareAddress: string | null = null;
+let myWithdrawals: WithdrawalRequest[] = [];
+let adminWithdrawals: AdminWithdrawal[] = [];
+let adminEnabled = false;
+let paymentMessage = '';
 
 let phoneDraft: PhoneDraft = {
   model: '',
@@ -1015,7 +1100,11 @@ function dashboard(): string {
       <div class="stats">
         <div class="stat">
           <small>${t(isHost ? 'earnings' : 'balance')}</small>
-          <strong>$0.00</strong>
+          <strong>$${Number(
+            isHost
+              ? moneyAccount?.hostBalanceUsd || 0
+              : moneyAccount?.renterBalanceUsd || 0
+          ).toFixed(2)}</strong>
         </div>
         <div class="stat">
           <small>${t(isHost ? 'phones' : 'sessions')}</small>
@@ -1038,12 +1127,85 @@ function dashboard(): string {
           </button>
         </div>
       </section>
+
+      ${adminPaymentPanel()}
     </main>
+  `;
+}
+
+function paymentWalletSummary(): string {
+  const address =
+    solflareAddress ||
+    moneyAccount?.linkedWallet ||
+    '';
+
+  return `
+    <div class="row">
+      <span>${t('connectedWallet')}</span>
+      <b class="wallet-address">
+        ${address
+          ? esc(address)
+          : '—'}
+      </b>
+    </div>
+    <button
+      class="btn secondary"
+      data-action="connect-solflare"
+      type="button"
+    >
+      ${t('connectWallet')}
+    </button>
+  `;
+}
+
+function renterPaymentPanel(): string {
+  return `
+    <section class="panel payment-panel">
+      <h2>${t('walletTitle')}</h2>
+      ${paymentWalletSummary()}
+      <div class="row">
+        <span>${t('balance')}</span>
+        <b>$${Number(
+          moneyAccount?.renterBalanceUsd || 0
+        ).toFixed(2)}</b>
+      </div>
+
+      <form id="deposit-form" class="payment-form">
+        <label>${t('depositAmount')}</label>
+        <input
+          class="input"
+          name="usdAmount"
+          type="number"
+          min="1"
+          max="500"
+          step="1"
+          value="10"
+          required
+        >
+        <button class="btn primary" type="submit">
+          ${t('paySol')}
+        </button>
+      </form>
+
+      <p class="payment-help">${t('depositHelp')}</p>
+      ${treasuryWallet ? `
+        <div class="wallet-note">
+          Treasury: ${esc(treasuryWallet)}
+        </div>
+      ` : ''}
+      ${paymentMessage ? `
+        <div class="notice">${esc(paymentMessage)}</div>
+      ` : ''}
+    </section>
   `;
 }
 
 function renterBody(): string {
   return `
+    ${renterPaymentPanel()}
+
+    <div style="height:16px"></div>
+
     <div class="grid">
       <section class="panel">
         <h2>${t('catalog')}</h2>
@@ -1062,9 +1224,159 @@ function renterBody(): string {
   `;
 }
 
+function withdrawalHistoryHtml(): string {
+  if (!myWithdrawals.length) {
+    return `
+      <div class="empty">
+        <span>${t('noWithdrawals')}</span>
+      </div>
+    `;
+  }
+
+  return myWithdrawals
+    .map(item => `
+      <div class="withdraw-item">
+        <div>
+          <b>$${Number(item.usdAmount).toFixed(2)}</b>
+          <small>
+            ≈ ${Number(item.quotedSol).toFixed(6)} SOL ·
+            ${esc(item.status)}
+          </small>
+        </div>
+        <small>${esc(item.walletAddress)}</small>
+      </div>
+    `)
+    .join('');
+}
+
+function hostPayoutPanel(): string {
+  return `
+    <section class="panel payment-panel">
+      <h2>${t('withdraw')}</h2>
+      ${paymentWalletSummary()}
+      <div class="row">
+        <span>${t('earnings')}</span>
+        <b>$${Number(
+          moneyAccount?.hostBalanceUsd || 0
+        ).toFixed(2)}</b>
+      </div>
+
+      <form id="withdraw-form" class="payment-form">
+        <label>${t('withdrawAmount')}</label>
+        <input
+          class="input"
+          name="usdAmount"
+          type="number"
+          min="1"
+          step="0.01"
+          max="${Number(
+            moneyAccount?.hostBalanceUsd || 0
+          ).toFixed(2)}"
+          required
+        >
+        <button class="btn primary" type="submit">
+          ${t('withdraw')}
+        </button>
+      </form>
+
+      ${paymentMessage ? `
+        <div class="notice">${esc(paymentMessage)}</div>
+      ` : ''}
+
+      <h3>${t('withdrawalHistory')}</h3>
+      ${withdrawalHistoryHtml()}
+    </section>
+  `;
+}
+
+function adminPaymentPanel(): string {
+  if (!user) return '';
+
+  if (!adminEnabled) {
+    return `
+      <section class="panel payment-panel" style="margin-top:16px">
+        <h2>${t('adminPayments')}</h2>
+        <p class="payment-help">${t('adminHelp')}</p>
+        <button
+          class="btn ghost"
+          data-action="admin-unlock"
+          type="button"
+        >
+          ${t('adminUnlock')}
+        </button>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="panel payment-panel" style="margin-top:16px">
+      <h2>${t('adminPayments')}</h2>
+      ${adminWithdrawals.length
+        ? adminWithdrawals.map(item => `
+          <div class="admin-withdraw">
+            <div class="row">
+              <span>$${Number(item.usdAmount).toFixed(2)}</span>
+              <b>≈ ${Number(item.quotedSol).toFixed(6)} SOL</b>
+            </div>
+            <div class="wallet-note">
+              ${esc(item.walletAddress)}
+            </div>
+            <div class="admin-withdraw-actions">
+              <button
+                class="btn ghost small"
+                data-action="copy-withdraw-wallet"
+                data-wallet="${esc(item.walletAddress)}"
+                type="button"
+              >
+                ${t('copyWallet')}
+              </button>
+              <input
+                class="input"
+                id="admin-sol-${esc(item.id)}"
+                type="number"
+                step="0.000000001"
+                min="0"
+                value="${Number(item.quotedSol).toFixed(9)}"
+                placeholder="${t('solSent')}"
+              >
+              <input
+                class="input"
+                id="admin-tx-${esc(item.id)}"
+                placeholder="${t('txSignature')}"
+              >
+              <button
+                class="btn primary small"
+                data-action="mark-withdraw-paid"
+                data-withdrawal-id="${esc(item.id)}"
+                type="button"
+              >
+                ${t('markPaid')}
+              </button>
+              <button
+                class="btn ghost small"
+                data-action="reject-withdrawal"
+                data-withdrawal-id="${esc(item.id)}"
+                type="button"
+              >
+                ${t('reject')}
+              </button>
+            </div>
+          </div>
+        `).join('')
+        : `
+          <div class="empty">
+            <span>${t('noWithdrawals')}</span>
+          </div>
+        `}
+    </section>
+  `;
+}
+
 function hostBody(): string {
   return `
     ${agentPanel()}
+    <div style="height:16px"></div>
+    ${hostPayoutPanel()}
     <div style="height:16px"></div>
     ${formOpen ? phoneForm() : ''}
 
@@ -1362,6 +1674,13 @@ function bind(): void {
         user = null;
         profile = null;
         devices = [];
+        moneyAccount = null;
+        treasuryWallet = '';
+        solflareAddress = null;
+        myWithdrawals = [];
+        adminWithdrawals = [];
+        adminEnabled = false;
+        paymentMessage = '';
         pairings.clear();
         currentView = 'home';
         stopRefresh();
@@ -1394,6 +1713,39 @@ function bind(): void {
       if (action === 'copy-ref' && profile) {
         await navigator.clipboard.writeText(profile.referralCode);
         element.textContent = t('copied');
+      }
+
+      if (action === 'connect-solflare') {
+        await connectPaymentWallet();
+      }
+
+      if (action === 'admin-unlock') {
+        await unlockAdminPayments();
+      }
+
+      if (action === 'copy-withdraw-wallet' && element.dataset.wallet) {
+        await navigator.clipboard.writeText(
+          element.dataset.wallet
+        );
+        element.textContent = t('copied');
+      }
+
+      if (
+        action === 'mark-withdraw-paid' &&
+        element.dataset.withdrawalId
+      ) {
+        await markWithdrawalPaid(
+          element.dataset.withdrawalId
+        );
+      }
+
+      if (
+        action === 'reject-withdrawal' &&
+        element.dataset.withdrawalId
+      ) {
+        await rejectWithdrawal(
+          element.dataset.withdrawalId
+        );
       }
 
       if (action === 'pair-device' && element.dataset.deviceId) {
@@ -1512,6 +1864,14 @@ function bind(): void {
         if (input) input.value = '';
       }
     });
+
+  document
+    .querySelector<HTMLFormElement>('#deposit-form')
+    ?.addEventListener('submit', submitDeposit);
+
+  document
+    .querySelector<HTMLFormElement>('#withdraw-form')
+    ?.addEventListener('submit', submitWithdrawal);
 }
 
 async function start(preferred: Role | null): Promise<void> {
@@ -1548,10 +1908,282 @@ async function start(preferred: Role | null): Promise<void> {
   }
 }
 
+async function loadPayments(): Promise<void> {
+  if (!user) {
+    moneyAccount = null;
+    treasuryWallet = '';
+    myWithdrawals = [];
+    adminWithdrawals = [];
+    adminEnabled = false;
+    return;
+  }
+
+  try {
+    const [
+      accountResponse,
+      withdrawalsResponse,
+      adminResponse,
+    ] = await Promise.all([
+      api.get('/api/payments/account'),
+      api.get('/api/payments/withdrawals'),
+      api.get('/api/payments/admin/status'),
+    ]);
+
+    moneyAccount =
+      accountResponse.data.account || null;
+    treasuryWallet =
+      accountResponse.data.treasuryWallet || '';
+    myWithdrawals =
+      withdrawalsResponse.data.withdrawals || [];
+    adminEnabled = Boolean(
+      adminResponse.data.isAdmin
+    );
+
+    if (adminEnabled) {
+      const pending = await api.get(
+        '/api/payments/admin/withdrawals'
+      );
+      adminWithdrawals =
+        pending.data.withdrawals || [];
+    } else {
+      adminWithdrawals = [];
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function connectPaymentWallet(): Promise<string | null> {
+  try {
+    solflareAddress =
+      await connectSolflare();
+
+    await api.post(
+      '/api/payments/wallet',
+      {
+        walletAddress: solflareAddress,
+      }
+    );
+
+    paymentMessage = '';
+    await loadPayments();
+    render();
+    return solflareAddress;
+  } catch (error) {
+    console.error(error);
+    paymentMessage = t('paymentError');
+    render();
+    return null;
+  }
+}
+
+async function submitDeposit(
+  event: Event
+): Promise<void> {
+  event.preventDefault();
+
+  const form =
+    event.currentTarget as HTMLFormElement;
+  const data = new FormData(form);
+  const usdAmount = Number(
+    data.get('usdAmount') || 0
+  );
+
+  try {
+    const walletAddress =
+      solflareAddress ||
+      await connectPaymentWallet();
+
+    if (!walletAddress) return;
+
+    paymentMessage = 'Solflare…';
+    render();
+
+    const quote = await api.post(
+      '/api/payments/deposits',
+      {
+        usdAmount,
+        walletAddress,
+      }
+    );
+
+    const deposit = quote.data.deposit;
+    const signature = await sendSolPayment(
+      deposit.treasuryWallet,
+      deposit.expectedLamports
+    );
+
+    await api.post(
+      '/api/payments/deposits/' +
+        encodeURIComponent(deposit.id) +
+        '/confirm',
+      { signature }
+    );
+
+    paymentMessage =
+      t('deposit') + ' ✓';
+    await loadPayments();
+    render();
+  } catch (error) {
+    console.error(error);
+    paymentMessage = t('paymentError');
+    render();
+  }
+}
+
+async function submitWithdrawal(
+  event: Event
+): Promise<void> {
+  event.preventDefault();
+
+  const form =
+    event.currentTarget as HTMLFormElement;
+  const data = new FormData(form);
+  const usdAmount = Number(
+    data.get('usdAmount') || 0
+  );
+
+  try {
+    const walletAddress =
+      solflareAddress ||
+      moneyAccount?.linkedWallet ||
+      await connectPaymentWallet();
+
+    if (!walletAddress) return;
+
+    await api.post(
+      '/api/payments/withdrawals',
+      {
+        usdAmount,
+        walletAddress,
+      }
+    );
+
+    paymentMessage =
+      t('withdrawalPending');
+    await loadPayments();
+    render();
+  } catch (error) {
+    console.error(error);
+    paymentMessage = t('paymentError');
+    render();
+  }
+}
+
+async function unlockAdminPayments(): Promise<void> {
+  try {
+    const walletAddress =
+      solflareAddress ||
+      await connectPaymentWallet();
+
+    if (!walletAddress) return;
+
+    const challenge = await api.post(
+      '/api/payments/admin/challenge',
+      {}
+    );
+
+    if (
+      walletAddress !==
+      challenge.data.treasuryWallet
+    ) {
+      paymentMessage =
+        'Connect treasury Solflare: ' +
+        challenge.data.treasuryWallet;
+      render();
+      return;
+    }
+
+    const signatureBase64 =
+      await signSolflareMessage(
+        challenge.data.message
+      );
+
+    await api.post(
+      '/api/payments/admin/verify',
+      {
+        challengeId:
+          challenge.data.challengeId,
+        walletAddress,
+        signatureBase64,
+      }
+    );
+
+    paymentMessage = '';
+    await loadPayments();
+    render();
+  } catch (error) {
+    console.error(error);
+    paymentMessage = t('paymentError');
+    render();
+  }
+}
+
+async function markWithdrawalPaid(
+  withdrawalId: string
+): Promise<void> {
+  const solInput =
+    document.querySelector<HTMLInputElement>(
+      '#admin-sol-' +
+      CSS.escape(withdrawalId)
+    );
+  const txInput =
+    document.querySelector<HTMLInputElement>(
+      '#admin-tx-' +
+      CSS.escape(withdrawalId)
+    );
+
+  const solAmount = Number(
+    solInput?.value || 0
+  );
+  const txSignature =
+    txInput?.value.trim() || '';
+
+  try {
+    await api.post(
+      '/api/payments/admin/withdrawals/' +
+        encodeURIComponent(withdrawalId) +
+        '/paid',
+      {
+        solAmount,
+        txSignature,
+      }
+    );
+
+    await loadPayments();
+    render();
+  } catch (error) {
+    console.error(error);
+    paymentMessage = t('paymentError');
+    render();
+  }
+}
+
+async function rejectWithdrawal(
+  withdrawalId: string
+): Promise<void> {
+  try {
+    await api.post(
+      '/api/payments/admin/withdrawals/' +
+        encodeURIComponent(withdrawalId) +
+        '/reject',
+      {}
+    );
+
+    await loadPayments();
+    render();
+  } catch (error) {
+    console.error(error);
+    paymentMessage = t('paymentError');
+    render();
+  }
+}
+
 async function loadProfile(): Promise<void> {
   try {
     const response = await api.get('/api/profile');
     profile = response.data.profile || null;
+    await loadPayments();
 
     if (profile?.role === 'host') {
       await loadDevices();
@@ -1632,10 +2264,14 @@ async function startRental(catalogId: string): Promise<void> {
     render();
   } catch (error) {
     console.error(error);
-    catalogMessage =
+    const rawMessage =
       error instanceof Error
         ? error.message
         : t('error');
+    catalogMessage =
+      rawMessage.includes('insufficient_balance')
+        ? t('insufficientBalance')
+        : rawMessage;
     currentView = 'catalog';
     await loadCatalog();
     render();
@@ -1653,6 +2289,7 @@ async function endRental(): Promise<void> {
       {}
     );
     activeSession = null;
+    await loadPayments();
     stopViewerSocket();
     currentView = 'catalog';
     await loadCatalog();
@@ -1852,6 +2489,7 @@ function startRefresh(): void {
         profile?.role === 'host'
       ) {
         await loadDevices();
+        await loadPayments();
       } else if (
         currentView === 'catalog' ||
         currentView === 'home'
