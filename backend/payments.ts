@@ -1,4 +1,10 @@
-import { db, error, json, requireAuth } from '@appdeploy/sdk';
+import {
+  db,
+  error,
+  json,
+  requireAuth,
+  type RouterRoutes,
+} from '@appdeploy/sdk';
 import { PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 
@@ -408,7 +414,7 @@ export async function settleRentalBalances(
   ]);
 }
 
-export const paymentRoutes = {
+export const paymentRoutes: RouterRoutes = {
   'GET /api/payments/account': [
     requireAuth(),
     async (ctx: {
