@@ -1,12 +1,7 @@
 import './styles.css';
 import { api, auth } from '@appdeploy/client';
 import { bindRemoteTouch } from './remote-control';
-import {
-  connectSolflare,
-  openSolflareApp,
-  sendSolPayment,
-  signSolflareMessage,
-} from './solana-wallet';
+
 
 type Role = 'renter' | 'host';
 type View = 'home' | 'dashboard' | 'catalog' | 'session';
@@ -72,6 +67,25 @@ type MoneyAccount = {
   linkedWallet?: string | null;
   renterBalanceUsd: number;
   hostBalanceUsd: number;
+};
+
+type DepositQuote = {
+  id: string;
+  usdAmount: number;
+  expectedSol: number;
+  expectedLamports: number;
+  treasuryWallet: string;
+  expiresAt: string;
+  senderWallet: string;
+};
+
+type DepositHistory = {
+  id: string;
+  usdAmount: number;
+  expectedSol: number;
+  status: string;
+  signature?: string | null;
+  createdAt: string;
 };
 
 type WithdrawalRequest = {
@@ -197,13 +211,18 @@ const words: Record<string, Record<string, string>> = {
     makeAvailable: 'Сделать доступным',
     stopListing: 'Не сдавать',
     notAvailable: 'Не сдаётся',
-    walletTitle: 'Solana / Solflare',
-    connectWallet: 'Подключить Solflare',
-    connectedWallet: 'Подключённый кошелёк',
+    walletTitle: 'Баланс / Solana',
     deposit: 'Пополнить баланс',
     depositAmount: 'Сумма пополнения, USD',
-    paySol: 'Оплатить SOL',
-    depositHelp: 'SOL уйдёт прямо на кошелёк PhoneBridge. Баланс зачислится только после подтверждения транзакции в Solana.',
+    senderWallet: 'Адрес кошелька отправителя',
+    createDeposit: 'Создать пополнение',
+    depositHelp: 'Создай пополнение, переведи точную сумму SOL на адрес PhoneBridge и вставь tx signature. Кошелёк подключать не нужно.',
+    sendExact: 'Отправь точно',
+    toAddress: 'На адрес',
+    confirmPayment: 'Проверить и зачислить',
+    depositHistory: 'История пополнений',
+    depositConfirmed: 'Баланс пополнен',
+    copyAmount: 'Копировать сумму',
     withdraw: 'Вывести',
     withdrawAmount: 'Сумма вывода, USD',
     payoutWallet: 'Кошелёк для вывода',
@@ -308,13 +327,18 @@ const words: Record<string, Record<string, string>> = {
     makeAvailable: 'Make available',
     stopListing: 'Stop renting',
     notAvailable: 'Not for rent',
-    walletTitle: 'Solana / Solflare',
-    connectWallet: 'Connect Solflare',
-    connectedWallet: 'Connected wallet',
+    walletTitle: 'Balance / Solana',
     deposit: 'Add balance',
     depositAmount: 'Top-up amount, USD',
-    paySol: 'Pay with SOL',
-    depositHelp: 'SOL goes directly to the PhoneBridge treasury wallet. Balance is credited only after the Solana transaction is verified.',
+    senderWallet: 'Sender wallet address',
+    createDeposit: 'Create top-up',
+    depositHelp: 'Create a top-up, send the exact SOL amount to the PhoneBridge address, then paste the tx signature. No wallet connection is required.',
+    sendExact: 'Send exactly',
+    toAddress: 'To address',
+    confirmPayment: 'Verify and credit',
+    depositHistory: 'Deposit history',
+    depositConfirmed: 'Balance credited',
+    copyAmount: 'Copy amount',
     withdraw: 'Withdraw',
     withdrawAmount: 'Withdrawal amount, USD',
     payoutWallet: 'Payout wallet',
@@ -693,7 +717,8 @@ let viewerReconnectTimer: number | null = null;
 let viewerReconnectAttempt = 0;
 let moneyAccount: MoneyAccount | null = null;
 let treasuryWallet = '';
-let solflareAddress: string | null = null;
+let depositQuote: DepositQuote | null = null;
+let myDeposits: DepositHistory[] = [];
 let myWithdrawals: WithdrawalRequest[] = [];
 let adminWithdrawals: AdminWithdrawal[] = [];
 let adminEnabled = false;
@@ -1137,40 +1162,77 @@ function dashboard(): string {
   `;
 }
 
-function paymentWalletSummary(): string {
-  const address =
-    solflareAddress ||
-    moneyAccount?.linkedWallet ||
-    '';
+function depositHistoryHtml(): string {
+  if (!myDeposits.length) return '';
 
   return `
-    <div class="row">
-      <span>${t('connectedWallet')}</span>
-      <b class="wallet-address">
-        ${address
-          ? esc(address)
-          : '—'}
-      </b>
+    <h3>${t('depositHistory')}</h3>
+    ${myDeposits
+      .slice(0, 8)
+      .map(item => `
+        <div class="withdraw-item">
+          <div>
+            <b>${Number(item.usdAmount).toFixed(2)}</b>
+            <small>
+              ${Number(item.expectedSol).toFixed(9)} SOL ·
+              ${esc(item.status)}
+            </small>
+          </div>
+          ${item.signature ? `
+            <small>${esc(item.signature)}</small>
+          ` : ''}
+        </div>
+      `)
+      .join('')}
+  `;
+}
+
+function depositQuoteHtml(): string {
+  if (!depositQuote) return '';
+
+  return `
+    <div class="deposit-quote">
+      <div class="row">
+        <span>${t('sendExact')}</span>
+        <b>${Number(depositQuote.expectedSol).toFixed(9)} SOL</b>
+      </div>
+      <div class="row">
+        <span>${t('toAddress')}</span>
+        <b class="wallet-address">
+          ${esc(depositQuote.treasuryWallet)}
+        </b>
+      </div>
+
+      <div class="wallet-actions">
+        <button
+          class="btn ghost small"
+          data-action="copy-treasury-wallet"
+          type="button"
+        >
+          ${t('copyWallet')}
+        </button>
+        <button
+          class="btn ghost small"
+          data-action="copy-deposit-amount"
+          type="button"
+        >
+          ${t('copyAmount')}
+        </button>
+      </div>
+
+      <form id="deposit-confirm-form" class="payment-form">
+        <label>${t('txSignature')}</label>
+        <input
+          class="input"
+          name="signature"
+          autocomplete="off"
+          required
+        >
+        <button class="btn primary" type="submit">
+          ${t('confirmPayment')}
+        </button>
+      </form>
     </div>
-    <div class="wallet-actions">
-      <button
-        class="btn secondary"
-        data-action="connect-solflare"
-        type="button"
-      >
-        ${t('connectWallet')}
-      </button>
-      <button
-        class="btn ghost"
-        data-action="open-solflare-app"
-        type="button"
-      >
-        ${t('openSolflare')}
-      </button>
-    </div>
-    <p class="payment-help">
-      ${t('walletConnectHelp')}
-    </p>
   `;
 }
 
@@ -1178,40 +1240,48 @@ function renterPaymentPanel(): string {
   return `
     <section class="panel payment-panel">
       <h2>${t('walletTitle')}</h2>
-      ${paymentWalletSummary()}
       <div class="row">
         <span>${t('balance')}</span>
-        <b>$${Number(
+        <b>${Number(
           moneyAccount?.renterBalanceUsd || 0
         ).toFixed(2)}</b>
       </div>
 
-      <form id="deposit-form" class="payment-form">
-        <label>${t('depositAmount')}</label>
-        <input
-          class="input"
-          name="usdAmount"
-          type="number"
-          min="1"
-          max="500"
-          step="1"
-          value="10"
-          required
-        >
+      <form id="deposit-form" class="manual-payment-form">
+        <div class="field">
+          <label>${t('depositAmount')}</label>
+          <input
+            class="input"
+            name="usdAmount"
+            type="number"
+            min="1"
+            max="500"
+            step="1"
+            value="10"
+            required
+          >
+        </div>
+        <div class="field">
+          <label>${t('senderWallet')}</label>
+          <input
+            class="input"
+            name="walletAddress"
+            autocomplete="off"
+            placeholder="Solana address"
+            required
+          >
+        </div>
         <button class="btn primary" type="submit">
-          ${t('paySol')}
+          ${t('createDeposit')}
         </button>
       </form>
 
       <p class="payment-help">${t('depositHelp')}</p>
-      ${treasuryWallet ? `
-        <div class="wallet-note">
-          Treasury: ${esc(treasuryWallet)}
-        </div>
-      ` : ''}
+      ${depositQuoteHtml()}
       ${paymentMessage ? `
         <div class="notice">${esc(paymentMessage)}</div>
       ` : ''}
+      ${depositHistoryHtml()}
     </section>
   `;
 }
@@ -1269,27 +1339,41 @@ function hostPayoutPanel(): string {
   return `
     <section class="panel payment-panel">
       <h2>${t('withdraw')}</h2>
-      ${paymentWalletSummary()}
       <div class="row">
         <span>${t('earnings')}</span>
-        <b>$${Number(
+        <b>${Number(
           moneyAccount?.hostBalanceUsd || 0
         ).toFixed(2)}</b>
       </div>
 
-      <form id="withdraw-form" class="payment-form">
-        <label>${t('withdrawAmount')}</label>
-        <input
-          class="input"
-          name="usdAmount"
-          type="number"
-          min="1"
-          step="0.01"
-          max="${Number(
-            moneyAccount?.hostBalanceUsd || 0
-          ).toFixed(2)}"
-          required
-        >
+      <form id="withdraw-form" class="manual-payment-form">
+        <div class="field">
+          <label>${t('withdrawAmount')}</label>
+          <input
+            class="input"
+            name="usdAmount"
+            type="number"
+            min="1"
+            step="0.01"
+            max="${Number(
+              moneyAccount?.hostBalanceUsd || 0
+            ).toFixed(2)}"
+            required
+          >
+        </div>
+        <div class="field">
+          <label>${t('payoutWallet')}</label>
+          <input
+            class="input"
+            name="walletAddress"
+            autocomplete="off"
+            placeholder="Solana address"
+            value="${esc(
+              moneyAccount?.linkedWallet || ''
+            )}"
+            required
+          >
+        </div>
         <button class="btn primary" type="submit">
           ${t('withdraw')}
         </button>
@@ -1306,17 +1390,7 @@ function hostPayoutPanel(): string {
 }
 
 function adminPaymentPanel(): string {
-  if (!user) return '';
-
-  if (
-    !adminEnabled &&
-    (
-      !treasuryWallet ||
-      solflareAddress !== treasuryWallet
-    )
-  ) {
-    return '';
-  }
+  if (!user || !adminEnabled) return '';
 
   if (!adminEnabled) {
     return `
@@ -1702,7 +1776,8 @@ function bind(): void {
         devices = [];
         moneyAccount = null;
         treasuryWallet = '';
-        solflareAddress = null;
+        depositQuote = null;
+        myDeposits = [];
         myWithdrawals = [];
         adminWithdrawals = [];
         adminEnabled = false;
@@ -1741,16 +1816,18 @@ function bind(): void {
         element.textContent = t('copied');
       }
 
-      if (action === 'connect-solflare') {
-        await connectPaymentWallet();
+      if (action === 'copy-treasury-wallet' && depositQuote) {
+        await navigator.clipboard.writeText(
+          depositQuote.treasuryWallet
+        );
+        element.textContent = t('copied');
       }
 
-      if (action === 'open-solflare-app') {
-        openSolflareApp();
-      }
-
-      if (action === 'admin-unlock') {
-        await unlockAdminPayments();
+      if (action === 'copy-deposit-amount' && depositQuote) {
+        await navigator.clipboard.writeText(
+          Number(depositQuote.expectedSol).toFixed(9)
+        );
+        element.textContent = t('copied');
       }
 
       if (action === 'copy-withdraw-wallet' && element.dataset.wallet) {
@@ -1900,6 +1977,10 @@ function bind(): void {
     ?.addEventListener('submit', submitDeposit);
 
   document
+    .querySelector<HTMLFormElement>('#deposit-confirm-form')
+    ?.addEventListener('submit', confirmDeposit);
+
+  document
     .querySelector<HTMLFormElement>('#withdraw-form')
     ?.addEventListener('submit', submitWithdrawal);
 }
@@ -1942,6 +2023,8 @@ async function loadPayments(): Promise<void> {
   if (!user) {
     moneyAccount = null;
     treasuryWallet = '';
+    depositQuote = null;
+    myDeposits = [];
     myWithdrawals = [];
     adminWithdrawals = [];
     adminEnabled = false;
@@ -1951,10 +2034,12 @@ async function loadPayments(): Promise<void> {
   try {
     const [
       accountResponse,
+      depositsResponse,
       withdrawalsResponse,
       adminResponse,
     ] = await Promise.all([
       api.get('/api/payments/account'),
+      api.get('/api/payments/deposits'),
       api.get('/api/payments/withdrawals'),
       api.get('/api/payments/admin/status'),
     ]);
@@ -1963,6 +2048,8 @@ async function loadPayments(): Promise<void> {
       accountResponse.data.account || null;
     treasuryWallet =
       accountResponse.data.treasuryWallet || '';
+    myDeposits =
+      depositsResponse.data.deposits || [];
     myWithdrawals =
       withdrawalsResponse.data.withdrawals || [];
     adminEnabled = Boolean(
@@ -1983,18 +2070,585 @@ async function loadPayments(): Promise<void> {
   }
 }
 
-async function connectPaymentWallet(): Promise<string | null> {
-  try {
-    solflareAddress =
-      await connectSolflare();
+async function submitDeposit(
+  event: Event
+): Promise<void> {
+  event.preventDefault();
 
-    await api.post(
-      '/api/payments/wallet',
+  const form =
+    event.currentTarget as HTMLFormElement;
+  const data = new FormData(form);
+  const usdAmount = Number(
+    data.get('usdAmount') || 0
+  );
+  const walletAddress = String(
+    data.get('walletAddress') || ''
+  ).trim();
+
+  try {
+    const response = await api.post(
+      '/api/payments/deposits',
       {
-        walletAddress: solflareAddress,
+        usdAmount,
+        walletAddress,
       }
     );
 
+    depositQuote = {
+      ...response.data.deposit,
+      senderWallet: walletAddress,
+    };
     paymentMessage = '';
+    render();
+  } catch (error) {
+    console.error(error);
+    paymentMessage = t('paymentError');
+    render();
+  }
+}
+
+async function confirmDeposit(
+  event: Event
+): Promise<void> {
+  event.preventDefault();
+  if (!depositQuote) return;
+
+  const form =
+    event.currentTarget as HTMLFormElement;
+  const data = new FormData(form);
+  const signature = String(
+    data.get('signature') || ''
+  ).trim();
+
+  try {
+    await api.post(
+      '/api/payments/deposits/' +
+        encodeURIComponent(depositQuote.id) +
+        '/confirm',
+      { signature }
+    );
+
+    depositQuote = null;
+    paymentMessage =
+      t('depositConfirmed') + ' ✓';
     await loadPayments();
     render();
+  } catch (error) {
+    console.error(error);
+    paymentMessage = t('paymentError');
+    render();
+  }
+}
+
+async function submitWithdrawal(
+  event: Event
+): Promise<void> {
+  event.preventDefault();
+
+  const form =
+    event.currentTarget as HTMLFormElement;
+  const data = new FormData(form);
+  const usdAmount = Number(
+    data.get('usdAmount') || 0
+  );
+  const walletAddress = String(
+    data.get('walletAddress') || ''
+  ).trim();
+
+  try {
+    await api.post(
+      '/api/payments/wallet',
+      { walletAddress }
+    );
+
+    await api.post(
+      '/api/payments/withdrawals',
+      {
+        usdAmount,
+        walletAddress,
+      }
+    );
+
+    paymentMessage =
+      t('withdrawalPending');
+    await loadPayments();
+    render();
+  } catch (error) {
+    console.error(error);
+    paymentMessage = t('paymentError');
+    render();
+  }
+}
+
+async function markWithdrawalPaid(
+  withdrawalId: string
+): Promise<void> {
+  const solInput =
+    document.querySelector<HTMLInputElement>(
+      '#admin-sol-' +
+      CSS.escape(withdrawalId)
+    );
+  const txInput =
+    document.querySelector<HTMLInputElement>(
+      '#admin-tx-' +
+      CSS.escape(withdrawalId)
+    );
+
+  const solAmount = Number(
+    solInput?.value || 0
+  );
+  const txSignature =
+    txInput?.value.trim() || '';
+
+  try {
+    await api.post(
+      '/api/payments/admin/withdrawals/' +
+        encodeURIComponent(withdrawalId) +
+        '/paid',
+      {
+        solAmount,
+        txSignature,
+      }
+    );
+
+    await loadPayments();
+    render();
+  } catch (error) {
+    console.error(error);
+    paymentMessage = t('paymentError');
+    render();
+  }
+}
+
+async function rejectWithdrawal(
+  withdrawalId: string
+): Promise<void> {
+  try {
+    await api.post(
+      '/api/payments/admin/withdrawals/' +
+        encodeURIComponent(withdrawalId) +
+        '/reject',
+      {}
+    );
+
+    await loadPayments();
+    render();
+  } catch (error) {
+    console.error(error);
+    paymentMessage = t('paymentError');
+    render();
+  }
+}
+
+async function loadProfile(): Promise<void> {
+  try {
+    const response = await api.get('/api/profile');
+    profile = response.data.profile || null;
+    await loadPayments();
+
+    if (profile?.role === 'host') {
+      await loadDevices();
+    }
+  } catch (error) {
+    console.error(error);
+    profile = null;
+  }
+}
+
+async function saveRole(role: Role): Promise<void> {
+  try {
+    const response = await api.post('/api/profile', { role });
+    profile = response.data.profile;
+    message = '';
+  } catch (error) {
+    console.error(error);
+    message = t('error');
+  }
+}
+
+async function loadDevices(): Promise<void> {
+  const response = await api.get('/api/devices');
+  devices = response.data.devices || [];
+
+  // Host device sync also creates/repairs the shared catalog entry.
+  await loadCatalog();
+}
+
+async function loadCatalog(): Promise<void> {
+  try {
+    const response = await api.get('/api/catalog');
+    catalogDevices = response.data.devices || [];
+  } catch (error) {
+    console.error(error);
+    catalogDevices = [];
+  }
+}
+
+async function loadActiveRental(): Promise<void> {
+  if (!user) {
+    activeSession = null;
+    return;
+  }
+
+  try {
+    const response = await api.get('/api/rentals/active');
+    activeSession = response.data.sessions?.[0] || null;
+  } catch (error) {
+    console.error(error);
+    activeSession = null;
+  }
+}
+
+async function startRental(catalogId: string): Promise<void> {
+  try {
+    if (!user) {
+      await start('renter');
+      if (!user) return;
+    }
+
+    await loadActiveRental();
+    if (activeSession) {
+      currentView = 'session';
+      render();
+      return;
+    }
+
+    const response = await api.post('/api/rentals/start', {
+      catalogId,
+    });
+
+    activeSession = response.data.session;
+    currentView = 'session';
+    catalogMessage = '';
+    await loadCatalog();
+    startRefresh();
+    render();
+  } catch (error) {
+    console.error(error);
+    const rawMessage =
+      error instanceof Error
+        ? error.message
+        : t('error');
+    catalogMessage =
+      rawMessage.includes('insufficient_balance')
+        ? t('insufficientBalance')
+        : rawMessage;
+    currentView = 'catalog';
+    await loadCatalog();
+    render();
+  }
+}
+
+async function endRental(): Promise<void> {
+  if (!activeSession) return;
+
+  try {
+    await api.post(
+      '/api/rentals/' +
+        encodeURIComponent(activeSession.id) +
+        '/end',
+      {}
+    );
+    activeSession = null;
+    await loadPayments();
+    stopViewerSocket();
+    currentView = 'catalog';
+    await loadCatalog();
+    startRefresh();
+    render();
+  } catch (error) {
+    console.error(error);
+    catalogMessage = t('error');
+    render();
+  }
+}
+
+function startSessionClock(): void {
+  stopSessionClock();
+
+  sessionClockTimer = window.setInterval(() => {
+    if (!activeSession || currentView !== 'session') return;
+
+    const elapsed =
+      document.querySelector<HTMLElement>('#session-elapsed');
+    const cost =
+      document.querySelector<HTMLElement>('#session-cost');
+
+    if (elapsed) {
+      elapsed.textContent =
+        formatDuration(elapsedSeconds(activeSession));
+    }
+    if (cost) {
+      cost.textContent =
+        '$' + sessionCost(activeSession).toFixed(4);
+    }
+  }, 1000);
+}
+
+function stopSessionClock(): void {
+  if (sessionClockTimer !== null) {
+    window.clearInterval(sessionClockTimer);
+    sessionClockTimer = null;
+  }
+}
+
+function sendRemoteCommand(
+  command: Record<string, unknown>
+): boolean {
+  if (
+    !viewerSocket ||
+    viewerSocket.readyState !== WebSocket.OPEN
+  ) {
+    return false;
+  }
+
+  viewerSocket.send(JSON.stringify(command));
+  return true;
+}
+
+function scheduleViewerReconnect(sessionId: string): void {
+  if (
+    viewerReconnectTimer !== null ||
+    currentView !== 'session' ||
+    !activeSession ||
+    activeSession.renderSessionId !== sessionId ||
+    viewerSessionId !== sessionId
+  ) {
+    return;
+  }
+
+  const delay = Math.min(
+    10_000,
+    1_000 * Math.pow(2, Math.min(viewerReconnectAttempt, 3))
+  );
+  viewerReconnectAttempt += 1;
+
+  viewerReconnectTimer = window.setTimeout(() => {
+    viewerReconnectTimer = null;
+    connectViewerSocket();
+  }, delay);
+}
+
+function connectViewerSocket(): void {
+  if (!activeSession?.viewerToken) return;
+
+  const sessionId = activeSession.renderSessionId;
+
+  if (
+    viewerSocket &&
+    viewerSessionId === sessionId &&
+    (
+      viewerSocket.readyState === WebSocket.OPEN ||
+      viewerSocket.readyState === WebSocket.CONNECTING
+    )
+  ) {
+    return;
+  }
+
+  if (viewerReconnectTimer !== null) {
+    window.clearTimeout(viewerReconnectTimer);
+    viewerReconnectTimer = null;
+  }
+
+  if (viewerSocket) {
+    const previous = viewerSocket;
+    viewerSocket = null;
+    previous.close(1000, 'reconnecting');
+  }
+
+  viewerSessionId = sessionId;
+  const token = encodeURIComponent(activeSession.viewerToken);
+  const socket = new WebSocket(
+    'wss://phonebridge-agent-api.onrender.com/ws' +
+      '?role=viewer&token=' + token
+  );
+  viewerSocket = socket;
+  socket.binaryType = 'blob';
+
+  socket.onopen = () => {
+    if (viewerSocket === socket) {
+      viewerReconnectAttempt = 0;
+    }
+  };
+
+  socket.onmessage = event => {
+    if (!(event.data instanceof Blob)) return;
+
+    const nextUrl = URL.createObjectURL(event.data);
+    const image =
+      document.querySelector<HTMLImageElement>('#remote-stream');
+    const wait =
+      document.querySelector<HTMLElement>('#remote-wait');
+
+    if (!image) {
+      URL.revokeObjectURL(nextUrl);
+      return;
+    }
+
+    const previous = lastFrameUrl;
+    lastFrameUrl = nextUrl;
+    image.src = nextUrl;
+    image.style.display = 'block';
+    if (wait) wait.style.display = 'none';
+
+    if (previous) {
+      window.setTimeout(
+        () => URL.revokeObjectURL(previous),
+        1000
+      );
+    }
+  };
+
+  socket.onclose = () => {
+    if (viewerSocket === socket) {
+      viewerSocket = null;
+      scheduleViewerReconnect(sessionId);
+    }
+  };
+
+  socket.onerror = () => {
+    // onclose schedules reconnect; the last frame stays visible.
+  };
+}
+
+function stopViewerSocket(): void {
+  if (viewerReconnectTimer !== null) {
+    window.clearTimeout(viewerReconnectTimer);
+    viewerReconnectTimer = null;
+  }
+  viewerReconnectAttempt = 0;
+  viewerSessionId = null;
+
+  if (viewerSocket) {
+    const socket = viewerSocket;
+    viewerSocket = null;
+    socket.close(1000, 'view_closed');
+  }
+
+  if (lastFrameUrl) {
+    URL.revokeObjectURL(lastFrameUrl);
+    lastFrameUrl = null;
+  }
+}
+
+async function openCatalog(): Promise<void> {
+  currentView = 'catalog';
+  catalogMessage = '';
+  await loadCatalog();
+  startRefresh();
+  render();
+}
+
+function startRefresh(): void {
+  stopRefresh();
+
+  refreshTimer = window.setInterval(async () => {
+    try {
+      if (
+        currentView === 'dashboard' &&
+        user &&
+        profile?.role === 'host'
+      ) {
+        await loadDevices();
+        await loadPayments();
+      } else if (
+        currentView === 'catalog' ||
+        currentView === 'home'
+      ) {
+        await loadCatalog();
+      } else if (currentView === 'session') {
+        await loadActiveRental();
+
+        if (!activeSession) {
+          currentView = 'catalog';
+          await loadCatalog();
+        }
+      }
+
+      render();
+    } catch (error) {
+      console.error(error);
+    }
+  }, 30_000);
+}
+
+function stopRefresh(): void {
+  if (refreshTimer !== null) {
+    window.clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+}
+
+async function createPairing(deviceId: string): Promise<void> {
+  try {
+    const response = await api.post(
+      '/api/devices/' + encodeURIComponent(deviceId) + '/pair',
+      {}
+    );
+
+    pairings.set(deviceId, response.data.pairing);
+    message = '';
+    render();
+  } catch (error) {
+    console.error(error);
+    message = t('error');
+    render();
+  }
+}
+
+async function submitPhone(event: Event): Promise<void> {
+  event.preventDefault();
+
+  const form = event.currentTarget as HTMLFormElement;
+  const data = new FormData(form);
+
+  const payload = {
+    model: String(data.get('model') || '').trim(),
+    country: String(data.get('country') || '').trim(),
+    androidVersion: String(
+      data.get('androidVersion') || ''
+    ).trim(),
+    carrier: String(data.get('carrier') || '').trim(),
+    network: String(data.get('network') || '').trim(),
+  };
+
+  try {
+    await api.post('/api/devices', payload);
+    await loadDevices();
+
+    phoneDraft = {
+      model: '',
+      country: '',
+      androidVersion: '',
+      carrier: '',
+      network: '5G',
+    };
+
+    message = t('saved');
+    formOpen = true;
+    render();
+  } catch (error) {
+    console.error(error);
+    message = t('error');
+    render();
+  }
+}
+
+async function boot(): Promise<void> {
+  user = await auth.getUser();
+
+  if (user) {
+    await loadProfile();
+    await loadActiveRental();
+    currentView =
+      activeSession ? 'session' : 'dashboard';
+  } else {
+    currentView = 'home';
+  }
+
+  await loadCatalog();
+  startRefresh();
+  render();
+}
+
+void boot();
