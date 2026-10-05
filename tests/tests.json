@@ -168,7 +168,7 @@
       "Confirm Install app and Download Agent APK buttons are visible",
       "Sign in as Phone owner and open Dashboard"
     ],
-    "expected": "Both Agent actions are visible on the home page and host dashboard and point to the current stable-signed Agent build 40."
+    "expected": "Both Agent actions are visible on the home page and host dashboard and point to the current current optimized Agent build."
   },
   {
     "name": "Existing phone reconnects without creating a duplicate",
@@ -483,5 +483,47 @@
       "Switch the browser tab to background and back"
     ],
     "expected": "Video remains stable while active, hidden tabs stop periodic refresh work, and returning to the tab performs one reconciliation."
+  },
+  {
+    "name": "Host can emergency-stop an active rental",
+    "viewport": "mobile",
+    "covers": [
+      "POST /api/devices/:id/stop-rental",
+      "durable rental lock",
+      "owner device busy state",
+      "rental settlement",
+      "Render release"
+    ],
+    "setup": [
+      "Have a host phone actively rented by another account"
+    ],
+    "description": "Verifies the phone owner can force-end an active rental from the host dashboard without having access to the renter account.",
+    "steps": [
+      "Open the host dashboard",
+      "Confirm the rented phone shows Stop rental",
+      "Confirm the emergency stop"
+    ],
+    "expected": "The active rental ends, remote access is released, final billing is settled once, and the phone becomes available again."
+  },
+  {
+    "name": "Finance page shows a unified transaction history",
+    "viewport": "mobile",
+    "covers": [
+      "GET /api/payments/history",
+      "deposit ledger",
+      "rental charge ledger",
+      "host earning ledger",
+      "withdrawal ledger",
+      "Finance transaction history UI"
+    ],
+    "setup": [
+      "Have at least one completed balance or rental operation"
+    ],
+    "description": "Verifies financial movements are recorded in one readable history instead of being visible only in separate forms.",
+    "steps": [
+      "Open Finance",
+      "Review the transaction history"
+    ],
+    "expected": "Finance shows dated entries with clear positive, negative or informational USD amounts for completed operations."
   }
 ]
