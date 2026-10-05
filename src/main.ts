@@ -618,7 +618,7 @@ let phoneDraft: PhoneDraft = {
 };
 
 const pairings = new Map<string, PairingInfo>();
-const AGENT_APK_URL = 'https://github.com/virus53111/Kredos/releases/download/agent-build-40/PhoneBridge-Agent.apk';
+const AGENT_APK_URL = 'https://github.com/virus53111/Kredos/releases/download/agent-build-44/PhoneBridge-Agent.apk';
 
 function t(key: string): string {
   return words[lang]?.[key] || words.en[key] || key;
