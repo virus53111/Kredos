@@ -728,3 +728,28 @@ a {
     gap: 12px;
   }
 }
+
+
+.remote-text-form {
+  width: min(520px, 100%);
+  margin-top: 12px;
+}
+
+.remote-text-form label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 7px;
+}
+
+.remote-text-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+@media (max-width: 520px) {
+  .remote-text-row {
+    grid-template-columns: 1fr;
+  }
+}
