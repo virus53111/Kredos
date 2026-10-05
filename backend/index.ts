@@ -33,6 +33,7 @@ interface Device {
   agentId?: string;
   lastSeenAt?: string;
   lastAgentInfo?: AgentInfo;
+  acceptingRentals?: boolean;
 }
 
 interface CatalogDevice {
@@ -46,6 +47,7 @@ interface CatalogDevice {
   hourlyRate: number;
   bridgeKey: string;
   createdAt: string;
+  acceptingRentals?: boolean;
 }
 
 interface AgentStatus {
@@ -65,6 +67,7 @@ interface RentalSession {
   hourlyRate: number;
   hostRate: number;
   renderSessionId: string;
+  viewerToken: string;
   status: 'active' | 'ended';
   startedAt: string;
   endedAt?: string;
@@ -167,9 +170,11 @@ function safeCatalogDevice(
     connectionStatus: status.connectionStatus,
     lastSeenAt: status.lastSeenAt || null,
     busy: Boolean(status.busy),
+    hostAvailable: item.acceptingRentals !== false,
     available:
       status.connectionStatus === 'online' &&
-      !status.busy,
+      !status.busy &&
+      item.acceptingRentals !== false,
   };
 }
 
@@ -198,6 +203,7 @@ async function ensureCatalogDevice(
       hourlyRate: next.hourlyRate,
       bridgeKey: next.bridgeKey!,
       createdAt: next.createdAt,
+      acceptingRentals: next.acceptingRentals !== false,
     };
     const [catalogId] = await db.add(CATALOG_TABLE, [catalogRecord]);
     if (!catalogId) throw new Error('catalog_create_failed');
@@ -286,6 +292,9 @@ export const handler = router({
         [catalogId]
       );
       if (!item) return error('catalog_device_not_found', 404);
+      if (item.acceptingRentals === false) {
+        return error('device_not_accepting_rentals', 409);
+      }
 
       let status: AgentStatus;
       try {
@@ -307,6 +316,7 @@ export const handler = router({
       let reservation: {
         sessionId: string;
         startedAt: string;
+        viewerToken: string;
       };
 
       try {
@@ -333,6 +343,7 @@ export const handler = router({
         hourlyRate: item.hourlyRate,
         hostRate: 0.5,
         renderSessionId: reservation.sessionId,
+        viewerToken: reservation.viewerToken,
         status: 'active',
         startedAt: reservation.startedAt,
         selfTest,
@@ -570,6 +581,7 @@ export const handler = router({
         hostRate: 0.5,
         createdAt: new Date().toISOString(),
         bridgeKey: makeBridgeKey(),
+        acceptingRentals: true,
       };
 
       const [id] = await db.add(deviceTable(ctx.user!.userId), [record]);
@@ -585,6 +597,65 @@ export const handler = router({
       return json({
         device: safeOwnedDevice(device),
       }, 201);
+    },
+  ],
+
+  'POST /api/devices/:id/availability': [
+    requireAuth(),
+    async ctx => {
+      const profile = await getProfile(ctx.user!.userId);
+      if (!profile || profile.role !== 'host') return error('host_only', 403);
+
+      const existing = await getOwnedDevice(ctx.user!.userId, ctx.params.id);
+      if (!existing) return error('device_not_found', 404);
+
+      const body = (ctx.body || {}) as { available?: unknown };
+      if (typeof body.available !== 'boolean') {
+        return error('invalid_availability', 400);
+      }
+
+      const device = await ensureCatalogDevice(ctx.user!.userId, {
+        id: ctx.params.id,
+        ...existing,
+      });
+
+      const { id, ...currentRecord } = device;
+      const updatedRecord: Device = {
+        ...currentRecord,
+        acceptingRentals: body.available,
+      };
+
+      const [deviceUpdated] = await db.update(
+        deviceTable(ctx.user!.userId),
+        [{ id, record: updatedRecord }]
+      );
+      if (!deviceUpdated) return error('availability_update_failed', 500);
+
+      if (device.catalogId) {
+        const [catalog] = await db.get<CatalogDevice>(
+          CATALOG_TABLE,
+          [device.catalogId]
+        );
+        if (catalog) {
+          const { id: catalogId, ...catalogRecord } = catalog;
+          await db.update(CATALOG_TABLE, [
+            {
+              id: catalogId,
+              record: {
+                ...catalogRecord,
+                acceptingRentals: body.available,
+              },
+            },
+          ]);
+        }
+      }
+
+      return json({
+        device: safeOwnedDevice({
+          id,
+          ...updatedRecord,
+        }),
+      });
     },
   ],
 
