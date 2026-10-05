@@ -271,5 +271,61 @@
       "Tap Home"
     ],
     "expected": "The browser sends normalized control commands through the active rental WebSocket while the rental remains active."
+  },
+  {
+    "name": "Remote text input reaches focused Android field",
+    "viewport": "mobile",
+    "covers": [
+      "remote text command",
+      "Accessibility ACTION_SET_TEXT",
+      "active rental WebSocket"
+    ],
+    "setup": [
+      "Start an active rental",
+      "Enable PhoneBridge Remote Control in Android Accessibility settings"
+    ],
+    "description": "Verifies the renter can send text to the currently focused editable field on the rented Android phone.",
+    "steps": [
+      "Tap a text field on the remote phone",
+      "Enter text in the PhoneBridge text box",
+      "Tap Send"
+    ],
+    "expected": "The text is written into the focused Android input field without leaving the active rental."
+  },
+  {
+    "name": "Viewer reconnects after a short WebSocket interruption",
+    "viewport": "mobile",
+    "covers": [
+      "viewer WebSocket reconnect",
+      "active rental continuity"
+    ],
+    "setup": [
+      "Start an active rental with live screen streaming"
+    ],
+    "description": "Verifies a short browser-side WebSocket interruption reconnects automatically while the rental remains active.",
+    "steps": [
+      "Interrupt the viewer WebSocket briefly",
+      "Restore connectivity"
+    ],
+    "expected": "PhoneBridge reconnects automatically and resumes live frames without creating a new rental."
+  },
+  {
+    "name": "Host can pause new rentals for a phone",
+    "viewport": "mobile",
+    "covers": [
+      "POST /api/devices/:id/availability",
+      "owner availability switch",
+      "catalog availability"
+    ],
+    "setup": [
+      "Sign in as Phone owner with one connected phone"
+    ],
+    "description": "Verifies the owner can stop or resume accepting new rentals without deleting or unpairing the phone.",
+    "steps": [
+      "Tap Stop renting",
+      "Open Catalog",
+      "Return to Dashboard and tap Make available"
+    ],
+    "expected": "The phone remains connected but cannot be newly rented while paused, then becomes rentable again when resumed."
   }
 ]
