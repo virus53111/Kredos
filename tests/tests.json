@@ -450,7 +450,8 @@
       "automatic rental reconciliation",
       "device_offline ended reason",
       "billing end cap",
-      "rental lock release"
+      "rental lock release",
+      "reconcile-rentals cron"
     ],
     "setup": [
       "Start a paid rental",
@@ -458,10 +459,11 @@
     ],
     "description": "Verifies a long offline period automatically ends the durable rental and releases the phone.",
     "steps": [
+      "Close the renter browser or leave it in the background",
       "Wait for active-session reconciliation",
       "Open Finance after the rental ends"
     ],
-    "expected": "The session ends with device_offline, access is closed, the durable phone lock is released and billing is capped near the last valid heartbeat grace window."
+    "expected": "The background reconciliation closes the session after the long-offline threshold, releases the durable phone lock and caps billing near the last valid heartbeat grace window even when the renter page is not open."
   },
   {
     "name": "Live session refresh does not rebuild the streaming DOM",
