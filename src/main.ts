@@ -4,7 +4,7 @@ import { bindRemoteTouch } from './remote-control';
 
 
 type Role = 'renter' | 'host';
-type View = 'home' | 'dashboard' | 'catalog' | 'session' | 'admin';
+type View = 'home' | 'dashboard' | 'catalog' | 'session' | 'finance' | 'admin';
 
 type Profile = {
   role: Role;
@@ -129,6 +129,9 @@ const words: Record<string, Record<string, string>> = {
     signIn: 'Войти',
     signOut: 'Выйти',
     dashboard: 'Кабинет',
+    finance: 'Финансы',
+    financeTitle: 'Финансы',
+    financeSubtitle: 'Баланс, пополнения, заработок и выводы',
     catalog: 'Каталог',
     heroTitle: 'Арендуй настоящий телефон за $1 в час.',
     heroText:
@@ -251,6 +254,9 @@ const words: Record<string, Record<string, string>> = {
     signIn: 'Sign in',
     signOut: 'Sign out',
     dashboard: 'Dashboard',
+    finance: 'Finance',
+    financeTitle: 'Finance',
+    financeSubtitle: 'Balance, deposits, earnings and withdrawals',
     catalog: 'Catalog',
     heroTitle: 'Rent a real phone for $1 an hour.',
     heroText:
@@ -788,6 +794,9 @@ function header(): string {
         ${user ? `
           <button class="btn ghost small" data-action="dashboard">
             ${t('dashboard')}
+          </button>
+          <button class="btn ghost small" data-action="finance">
+            ${t('finance')}
           </button>
           ${adminEnabled ? `
             <button class="btn primary small" data-action="admin">
@@ -1401,6 +1410,61 @@ function hostPayoutPanel(): string {
   `;
 }
 
+function financeView(): string {
+  if (!user || !profile) {
+    return landing();
+  }
+
+  const isHost = profile.role === 'host';
+
+  return `
+    ${header()}
+    <main class="dashboard shell finance-page">
+      <div class="dash-head">
+        <div>
+          <div class="eyebrow">PHONEBRIDGE</div>
+          <h1>${t('financeTitle')}</h1>
+          <p>${t('financeSubtitle')}</p>
+        </div>
+        <button
+          class="btn ghost"
+          data-action="dashboard"
+          type="button"
+        >
+          ${t('dashboard')}
+        </button>
+      </div>
+
+      <div class="stats finance-stats">
+        <div class="stat">
+          <small>${t('balance')}</small>
+          <strong>${Number(
+            moneyAccount?.renterBalanceUsd || 0
+          ).toFixed(2)}</strong>
+        </div>
+        <div class="stat">
+          <small>${t('earnings')}</small>
+          <strong>${Number(
+            moneyAccount?.hostBalanceUsd || 0
+          ).toFixed(2)}</strong>
+        </div>
+        <div class="stat">
+          <small>${isHost
+            ? t('withdrawalHistory')
+            : t('depositHistory')}</small>
+          <strong>${isHost
+            ? myWithdrawals.length
+            : myDeposits.length}</strong>
+        </div>
+      </div>
+
+      ${isHost
+        ? hostPayoutPanel()
+        : renterPaymentPanel()}
+    </main>
+  `;
+}
+
 function adminPaymentPanel(): string {
   if (!adminEnabled) {
     return `
@@ -1752,6 +1816,13 @@ function render(): void {
 
   if (currentView === 'session' && activeSession) {
     root.innerHTML = sessionView();
+  } else if (currentView === 'finance') {
+    if (user && profile) {
+      root.innerHTML = financeView();
+    } else {
+      currentView = user ? 'dashboard' : 'home';
+      root.innerHTML = user ? dashboard() : landing();
+    }
   } else if (currentView === 'admin') {
     if (user && adminEnabled) {
       root.innerHTML = adminView();
@@ -1801,6 +1872,18 @@ function bind(): void {
 
       if (action === 'catalog') {
         await openCatalog();
+      }
+
+      if (action === 'finance') {
+        if (!user) {
+          await start(null);
+          return;
+        }
+
+        await loadPayments();
+        currentView = 'finance';
+        startRefresh();
+        render();
       }
 
       if (action === 'admin') {
@@ -2629,6 +2712,12 @@ function startRefresh(): void {
   refreshTimer = window.setInterval(async () => {
     try {
       if (
+        currentView === 'finance' &&
+        user
+      ) {
+        await loadPayments();
+        render();
+      } else if (
         currentView === 'admin' &&
         user &&
         adminEnabled
