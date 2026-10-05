@@ -6,10 +6,11 @@ import {
   type RouterRoutes,
 } from '@appdeploy/sdk';
 import { PublicKey } from '@solana/web3.js';
-import nacl from 'tweetnacl';
 
 export const TREASURY_WALLET =
   'EjXomoeqsTuSBojd6i3yaduJdWtoFNuM28Vfp8yafCro';
+
+const ADMIN_EMAIL = 'dshtriters@gmail.com';
 
 const SOLANA_RPC = 'https://api.mainnet-beta.solana.com';
 const COINGECKO_PRICE =
@@ -21,10 +22,6 @@ const depositTable = (userId: string) =>
   'sol_deposits_' + userId;
 const withdrawalTable = 'withdrawal_requests';
 const receiptTable = 'sol_payment_receipts';
-const adminTable = (userId: string) =>
-  'admin_' + userId;
-const challengeTable = (userId: string) =>
-  'admin_challenges_' + userId;
 const settlementTable = (userId: string) =>
   'rental_settlements_' + userId;
 
@@ -61,13 +58,6 @@ interface Withdrawal {
   paidTxSignature?: string;
   paidSolAmount?: number;
   rejectedAt?: string;
-}
-
-interface AdminChallenge {
-  nonce: string;
-  message: string;
-  expiresAt: string;
-  used: boolean;
 }
 
 interface ParsedInstruction {
@@ -310,31 +300,24 @@ async function verifyNativeTransfer(
   }
 }
 
-function base64ToBytes(value: string): Uint8Array {
-  const binary = atob(value);
-  return Uint8Array.from(
-    binary,
-    char => char.charCodeAt(0)
-  );
+function normalizeEmail(
+  value?: string
+): string {
+  return String(value || '')
+    .trim()
+    .toLowerCase();
 }
 
-async function isAdmin(
-  userId: string
-): Promise<boolean> {
-  const { items } = await db.list<{
-    createdAt: string;
-  }>(
-    adminTable(userId),
-    { limit: 1 }
-  );
-
-  return Boolean(items[0]);
+function isAdminEmail(
+  value?: string
+): boolean {
+  return normalizeEmail(value) === ADMIN_EMAIL;
 }
 
-async function requireAdminUser(
-  userId: string
-): Promise<void> {
-  if (!(await isAdmin(userId))) {
+function requireAdminUser(
+  email?: string
+): void {
+  if (!isAdminEmail(email)) {
     throw new Error('admin_required');
   }
 }
@@ -863,168 +846,15 @@ export const paymentRoutes: RouterRoutes = {
     async (ctx: {
       user?: {
         userId: string;
+        email?: string;
       };
     }) =>
       json({
-        isAdmin: await isAdmin(
-          ctx.user!.userId
+        isAdmin: isAdminEmail(
+          ctx.user?.email
         ),
         treasuryWallet: TREASURY_WALLET,
       }),
-  ],
-
-  'POST /api/payments/admin/challenge': [
-    requireAuth(),
-    async (ctx: {
-      user?: {
-        userId: string;
-      };
-    }) => {
-      const nonce =
-        crypto.randomUUID().replace(/-/g, '');
-      const message =
-        'PhoneBridge admin access\n' +
-        'Treasury: ' +
-        TREASURY_WALLET +
-        '\nNonce: ' +
-        nonce;
-
-      const record: AdminChallenge = {
-        nonce,
-        message,
-        expiresAt: new Date(
-          Date.now() + 10 * 60_000
-        ).toISOString(),
-        used: false,
-      };
-
-      const [id] = await db.add(
-        challengeTable(ctx.user!.userId),
-        [record]
-      );
-
-      if (!id) {
-        return error(
-          'admin_challenge_failed',
-          500
-        );
-      }
-
-      return json({
-        challengeId: id,
-        message,
-        treasuryWallet: TREASURY_WALLET,
-      });
-    },
-  ],
-
-  'POST /api/payments/admin/verify': [
-    requireAuth(),
-    async (ctx: {
-      body: unknown;
-      user?: {
-        userId: string;
-      };
-    }) => {
-      const body = (ctx.body || {}) as {
-        challengeId?: string;
-        walletAddress?: string;
-        signatureBase64?: string;
-      };
-
-      const challengeId = String(
-        body.challengeId || ''
-      ).trim();
-      const walletAddress = String(
-        body.walletAddress || ''
-      ).trim();
-      const signatureBase64 = String(
-        body.signatureBase64 || ''
-      ).trim();
-
-      if (walletAddress !== TREASURY_WALLET) {
-        return error(
-          'treasury_wallet_required',
-          403
-        );
-      }
-
-      const [challenge] =
-        await db.get<AdminChallenge>(
-          challengeTable(ctx.user!.userId),
-          [challengeId]
-        );
-
-      if (
-        !challenge ||
-        challenge.used ||
-        Date.now() >
-          Date.parse(challenge.expiresAt)
-      ) {
-        return error(
-          'admin_challenge_invalid',
-          409
-        );
-      }
-
-      let valid = false;
-
-      try {
-        valid = nacl.sign.detached.verify(
-          new TextEncoder().encode(
-            challenge.message
-          ),
-          base64ToBytes(signatureBase64),
-          new PublicKey(
-            walletAddress
-          ).toBytes()
-        );
-      } catch {
-        valid = false;
-      }
-
-      if (!valid) {
-        return error(
-          'admin_signature_invalid',
-          403
-        );
-      }
-
-      await db.update(
-        challengeTable(ctx.user!.userId),
-        [
-          {
-            id: challengeId,
-            record: {
-              ...challenge,
-              used: true,
-            },
-          },
-        ]
-      );
-
-      const { items } = await db.list(
-        adminTable(ctx.user!.userId),
-        { limit: 1 }
-      );
-
-      if (!items[0]) {
-        await db.add(
-          adminTable(ctx.user!.userId),
-          [
-            {
-              walletAddress,
-              createdAt:
-                new Date().toISOString(),
-            },
-          ]
-        );
-      }
-
-      return json({
-        isAdmin: true,
-      });
-    },
   ],
 
   'GET /api/payments/admin/withdrawals': [
@@ -1032,11 +862,12 @@ export const paymentRoutes: RouterRoutes = {
     async (ctx: {
       user?: {
         userId: string;
+        email?: string;
       };
     }) => {
       try {
-        await requireAdminUser(
-          ctx.user!.userId
+        requireAdminUser(
+          ctx.user?.email
         );
       } catch {
         return error('admin_required', 403);
@@ -1078,11 +909,12 @@ export const paymentRoutes: RouterRoutes = {
       params: Record<string, string>;
       user?: {
         userId: string;
+        email?: string;
       };
     }) => {
       try {
-        await requireAdminUser(
-          ctx.user!.userId
+        requireAdminUser(
+          ctx.user?.email
         );
       } catch {
         return error('admin_required', 403);
@@ -1176,11 +1008,12 @@ export const paymentRoutes: RouterRoutes = {
       params: Record<string, string>;
       user?: {
         userId: string;
+        email?: string;
       };
     }) => {
       try {
-        await requireAdminUser(
-          ctx.user!.userId
+        requireAdminUser(
+          ctx.user?.email
         );
       } catch {
         return error('admin_required', 403);
