@@ -5,8 +5,10 @@ import android.accessibilityservice.GestureDescription
 import android.content.ComponentName
 import android.content.Context
 import android.graphics.Path
+import android.os.Bundle
 import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import org.json.JSONObject
 
 class RemoteControlService : AccessibilityService() {
@@ -43,6 +45,7 @@ class RemoteControlService : AccessibilityService() {
                 )
                 "back" -> performGlobalAction(GLOBAL_ACTION_BACK)
                 "home" -> performGlobalAction(GLOBAL_ACTION_HOME)
+                "text" -> setText(command.optString("text", ""))
             }
         } catch (_: Exception) {
             // Ignore malformed remote commands.
@@ -113,6 +116,29 @@ class RemoteControlService : AccessibilityService() {
                 .build(),
             null,
             null
+        )
+    }
+
+    private fun setText(value: String) {
+        if (value.isEmpty()) return
+
+        val root = rootInActiveWindow ?: return
+        val focused = root.findFocus(
+            AccessibilityNodeInfo.FOCUS_INPUT
+        ) ?: return
+
+        if (!focused.isEditable) return
+
+        val args = Bundle().apply {
+            putCharSequence(
+                AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                value.take(500)
+            )
+        }
+
+        focused.performAction(
+            AccessibilityNodeInfo.ACTION_SET_TEXT,
+            args
         )
     }
 
