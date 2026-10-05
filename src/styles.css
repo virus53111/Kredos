@@ -1116,3 +1116,58 @@ a {
     gap: 12px;
   }
 }
+
+
+.btn.danger {
+  border-color: rgba(255, 90, 110, 0.45);
+  background: rgba(255, 70, 95, 0.12);
+}
+
+.money-history {
+  display: grid;
+}
+
+.money-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 0;
+  border-top: 1px solid var(--line);
+}
+
+.money-history-item:first-child {
+  border-top: 0;
+}
+
+.money-history-item > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.money-history-item small {
+  color: var(--muted);
+}
+
+.money-history-item strong {
+  white-space: nowrap;
+}
+
+.money-history-item .credit {
+  color: #7ce6a7;
+}
+
+.money-history-item .debit {
+  color: #ff9a9a;
+}
+
+.money-history-item .info {
+  color: var(--muted);
+}
+
+@media (max-width: 620px) {
+  .money-history-item {
+    align-items: flex-start;
+  }
+}
