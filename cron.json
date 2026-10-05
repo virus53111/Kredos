@@ -1,0 +1,8 @@
+[
+  {
+    "name": "reconcile-rentals",
+    "cron": "*/5 * * * *",
+    "handler": "reconcileRentalsCron",
+    "timezone": "UTC"
+  }
+]
