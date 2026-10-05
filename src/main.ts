@@ -1291,6 +1291,16 @@ function hostPayoutPanel(): string {
 function adminPaymentPanel(): string {
   if (!user) return '';
 
+  if (
+    !adminEnabled &&
+    (
+      !treasuryWallet ||
+      solflareAddress !== treasuryWallet
+    )
+  ) {
+    return '';
+  }
+
   if (!adminEnabled) {
     return `
       <section class="panel payment-panel" style="margin-top:16px">
