@@ -329,28 +329,29 @@
     "expected": "The phone remains connected but cannot be newly rented while paused, then becomes rentable again when resumed."
   },
   {
-    "name": "Renter tops up USD balance with SOL from Solflare",
+    "name": "Renter tops up balance with a manual SOL transfer",
     "viewport": "mobile",
     "covers": [
       "GET /api/payments/account",
-      "POST /api/payments/wallet",
+      "GET /api/payments/deposits",
       "POST /api/payments/deposits",
       "POST /api/payments/deposits/:id/confirm",
-      "Solflare wallet connection",
+      "manual treasury transfer",
       "finalized Solana transfer verification"
     ],
     "setup": [
       "Sign in as a renter",
-      "Use a funded Solflare wallet on Solana mainnet"
+      "Have any funded Solana wallet"
     ],
-    "description": "Verifies a SOL payment goes directly to the PhoneBridge treasury and credits the internal USD balance only after on-chain verification.",
+    "description": "Verifies a renter can create a deposit quote, manually send the exact SOL amount to the PhoneBridge treasury, paste the transaction signature, and receive internal USD balance after on-chain verification.",
     "steps": [
-      "Connect Solflare",
-      "Choose a USD top-up amount",
-      "Approve the SOL transfer in Solflare",
-      "Wait for confirmation"
+      "Enter a USD amount and the sender Solana address",
+      "Create the top-up",
+      "Copy the treasury address and exact SOL amount",
+      "Send the SOL manually from the stated wallet",
+      "Paste the finalized transaction signature and verify"
     ],
-    "expected": "The treasury receives SOL and the renter USD balance increases exactly once."
+    "expected": "The treasury receives SOL and the renter balance increases exactly once."
   },
   {
     "name": "Paid rental consumes renter balance and credits host earnings",
@@ -387,38 +388,14 @@
     ],
     "setup": [
       "Sign in as a host with withdrawable earnings",
-      "Connect a Solflare wallet"
+      "Have a Solana address for payout"
     ],
-    "description": "Verifies a host can reserve part of earnings for a manual SOL payout without exposing any treasury private key.",
+    "description": "Verifies a host can enter a payout address manually and reserve part of earnings for a manual SOL payout.",
     "steps": [
       "Enter a withdrawal amount",
+      "Enter the Solana payout address",
       "Submit the request"
     ],
     "expected": "A pending withdrawal request is created with the host wallet address and the requested USD value is removed from available host earnings."
-  },
-  {
-    "name": "Treasury wallet unlocks admin payout queue and verifies manual payout",
-    "viewport": "desktop",
-    "covers": [
-      "POST /api/payments/admin/challenge",
-      "POST /api/payments/admin/verify",
-      "GET /api/payments/admin/withdrawals",
-      "POST /api/payments/admin/withdrawals/:id/paid",
-      "POST /api/payments/admin/withdrawals/:id/reject",
-      "treasury Solflare message signature",
-      "outgoing Solana transfer verification"
-    ],
-    "setup": [
-      "Have at least one pending host withdrawal",
-      "Connect the PhoneBridge treasury Solflare wallet"
-    ],
-    "description": "Verifies only the treasury wallet holder can see and process the manual payout queue.",
-    "steps": [
-      "Unlock admin payouts by signing the challenge",
-      "Copy the host wallet and send SOL manually",
-      "Paste the finalized transaction signature and SOL amount",
-      "Mark the request paid"
-    ],
-    "expected": "The server verifies the treasury signature and outgoing Solana transfer before changing the withdrawal status to paid."
   }
 ]
