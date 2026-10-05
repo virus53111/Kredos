@@ -753,3 +753,87 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+
+.payment-panel {
+  overflow: hidden;
+}
+
+.payment-panel .btn {
+  margin-top: 10px;
+}
+
+.payment-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 16px;
+}
+
+.payment-form label {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.payment-help,
+.wallet-note {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+  word-break: break-all;
+}
+
+.wallet-address {
+  max-width: 62%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.withdraw-item,
+.admin-withdraw {
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
+}
+
+.withdraw-item {
+  display: grid;
+  gap: 6px;
+}
+
+.withdraw-item div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.withdraw-item small {
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.admin-withdraw-actions {
+  display: grid;
+  grid-template-columns: auto minmax(100px, .5fr) minmax(180px, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+@media (max-width: 760px) {
+  .payment-form,
+  .admin-withdraw-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-form label {
+    grid-column: auto;
+  }
+
+  .wallet-address {
+    max-width: 55%;
+  }
+}
