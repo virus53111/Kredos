@@ -16,6 +16,44 @@ const reservations = new Map();
 const agentSockets = new Map();
 const viewerSockets = new Map();
 
+function closeSessionSockets(sessionId, reason) {
+  const agentSocket = agentSockets.get(sessionId);
+  if (agentSocket) {
+    agentSocket.close(1000, reason);
+    agentSockets.delete(sessionId);
+  }
+
+  const viewerSocket = viewerSockets.get(sessionId);
+  if (viewerSocket) {
+    viewerSocket.close(1000, reason);
+    viewerSockets.delete(sessionId);
+  }
+}
+
+function getActiveReservation(deviceId) {
+  const current = reservations.get(deviceId);
+  if (!current) return null;
+
+  if (
+    current.expiresAt &&
+    Date.now() >= current.expiresAt
+  ) {
+    reservations.delete(deviceId);
+    closeSessionSockets(
+      current.sessionId,
+      'rental_expired'
+    );
+    console.log(
+      '[expire]',
+      deviceId,
+      current.sessionId
+    );
+    return null;
+  }
+
+  return current;
+}
+
 function b64url(input) {
   return Buffer.from(input).toString('base64url');
 }
@@ -212,8 +250,18 @@ async function handle(req, res) {
     const deviceId = String(body.deviceId || '').trim();
     const deviceKey = String(body.deviceKey || '').trim();
     const renterId = String(body.renterId || '').trim();
+    const maxSeconds = Math.floor(
+      Number(body.maxSeconds || 0)
+    );
 
-    if (!deviceId || deviceKey.length < 32 || !renterId) {
+    if (
+      !deviceId ||
+      deviceKey.length < 32 ||
+      !renterId ||
+      !Number.isFinite(maxSeconds) ||
+      maxSeconds < 60 ||
+      maxSeconds > 24 * 60 * 60
+    ) {
       return json(res, 400, { error: 'invalid_reservation' });
     }
 
@@ -226,19 +274,21 @@ async function handle(req, res) {
       return json(res, 409, { error: 'device_offline' });
     }
 
-    const existing = reservations.get(deviceId);
+    const existing = getActiveReservation(deviceId);
     if (existing) {
       return json(res, 409, { error: 'device_busy' });
     }
 
     const sessionId = randomId();
     const startedAt = Date.now();
+    const expiresAt =
+      startedAt + maxSeconds * 1000;
     const viewerToken = makeToken({
       typ: 'viewer',
       sessionId,
       deviceId,
       iat: startedAt,
-      exp: startedAt + 24 * 60 * 60_000
+      exp: expiresAt
     });
 
     reservations.set(deviceId, {
@@ -246,6 +296,7 @@ async function handle(req, res) {
       renterId,
       keyHash: hashKey(deviceKey),
       startedAt,
+      expiresAt,
       viewerToken
     });
 
@@ -254,6 +305,7 @@ async function handle(req, res) {
     return json(res, 200, {
       sessionId,
       startedAt: new Date(startedAt).toISOString(),
+      expiresAt: new Date(expiresAt).toISOString(),
       viewerToken
     });
   }
@@ -268,7 +320,7 @@ async function handle(req, res) {
       return json(res, 400, { error: 'invalid_release' });
     }
 
-    const current = reservations.get(deviceId);
+    const current = getActiveReservation(deviceId);
     if (!current) {
       return json(res, 200, { released: true });
     }
@@ -281,18 +333,10 @@ async function handle(req, res) {
     }
 
     reservations.delete(deviceId);
-
-    const agentSocket = agentSockets.get(sessionId);
-    if (agentSocket) {
-      agentSocket.close(1000, 'rental_ended');
-      agentSockets.delete(sessionId);
-    }
-
-    const viewerSocket = viewerSockets.get(sessionId);
-    if (viewerSocket) {
-      viewerSocket.close(1000, 'rental_ended');
-      viewerSockets.delete(sessionId);
-    }
+    closeSessionSockets(
+      sessionId,
+      'rental_ended'
+    );
 
     console.log('[release]', deviceId, sessionId);
     return json(res, 200, { released: true });
@@ -311,13 +355,22 @@ async function handle(req, res) {
       return json(res, 401, { error: 'agent_id_mismatch' });
     }
 
-    const current = reservations.get(agent.deviceId);
+    const current = getActiveReservation(
+      agent.deviceId
+    );
     return json(res, 200, {
       active: Boolean(current),
       session: current
         ? {
             sessionId: current.sessionId,
-            startedAt: new Date(current.startedAt).toISOString()
+            startedAt:
+              new Date(
+                current.startedAt
+              ).toISOString(),
+            expiresAt:
+              new Date(
+                current.expiresAt
+              ).toISOString()
           }
         : null
     });
@@ -343,7 +396,9 @@ async function handle(req, res) {
     }
 
     const online = Date.now() - state.ts <= 120_000;
-    const current = reservations.get(deviceId);
+    const current = getActiveReservation(
+      deviceId
+    );
 
     return json(res, 200, {
       connectionStatus: online ? 'online' : 'offline',
@@ -383,7 +438,8 @@ server.on('upgrade', (req, socket, head) => {
 
     if (role === 'viewer') {
       const viewer = verifyToken(token, 'viewer');
-      const reservation = reservations.get(viewer.deviceId);
+      const reservation =
+        getActiveReservation(viewer.deviceId);
 
       if (
         !reservation ||
@@ -407,7 +463,8 @@ server.on('upgrade', (req, socket, head) => {
       const agent = verifyToken(token, 'agent');
       const sessionId =
         String(url.searchParams.get('sessionId') || '');
-      const reservation = reservations.get(agent.deviceId);
+      const reservation =
+        getActiveReservation(agent.deviceId);
 
       if (
         !reservation ||
