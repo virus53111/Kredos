@@ -217,7 +217,7 @@ const words: Record<string, Record<string, string>> = {
     solSent: 'Отправлено SOL',
     copyWallet: 'Копировать адрес',
     noWithdrawals: 'Нет заявок на вывод',
-    insufficientBalance: 'Недостаточно баланса. Пополни минимум на $1.',
+    insufficientBalance: 'Недостаточно баланса для минуты аренды. Пополни баланс.',
     paymentError: 'Ошибка платежа. Проверь Solflare и попробуй ещё раз.',
   },
   en: {
@@ -326,7 +326,7 @@ const words: Record<string, Record<string, string>> = {
     solSent: 'SOL sent',
     copyWallet: 'Copy address',
     noWithdrawals: 'No withdrawal requests',
-    insufficientBalance: 'Insufficient balance. Add at least $1.',
+    insufficientBalance: 'Insufficient balance for one minute of rental. Add funds.',
     paymentError: 'Payment error. Check Solflare and try again.',
   },
   lv: {
@@ -800,7 +800,6 @@ function landing(): string {
           <div class="metrics">
             <span><b>6</b><small>languages</small></span>
             <span><b>$1</b><small>/ h</small></span>
-            <span><b>$10</b><small>/ 24 h</small></span>
             <span><b>50%</b><small>host share</small></span>
           </div>
         </div>
@@ -1083,7 +1082,7 @@ function dashboard(): string {
         <div>
           <div class="eyebrow">${isHost ? 'HOST' : 'RENTER'}</div>
           <h1>${t(isHost ? 'hostTitle' : 'renterTitle')}</h1>
-          <p>${isHost ? '$0.50 / paid hour' : '$1 / hour · $10 / 24h'}</p>
+          <p>${isHost ? '$0.50 / paid hour' : '$1 / hour'}</p>
         </div>
 
         ${isHost ? `
@@ -1218,7 +1217,7 @@ function renterBody(): string {
       <aside class="panel">
         <h2>Plan</h2>
         <div class="row"><span>1 hour</span><b>$1</b></div>
-        <div class="row"><span>24 hours</span><b>$10</b></div>
+        <div class="row"><span>Billing</span><b>per second</b></div>
       </aside>
     </div>
   `;
