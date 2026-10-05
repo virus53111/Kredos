@@ -16,6 +16,8 @@ const reservations = new Map();
 const agentSockets = new Map();
 const viewerSockets = new Map();
 
+const OFFLINE_RELEASE_MS = 5 * 60_000;
+
 function closeSessionSockets(sessionId, reason) {
   const agentSocket = agentSockets.get(sessionId);
   if (agentSocket) {
@@ -34,9 +36,11 @@ function getActiveReservation(deviceId) {
   const current = reservations.get(deviceId);
   if (!current) return null;
 
+  const now = Date.now();
+
   if (
     current.expiresAt &&
-    Date.now() >= current.expiresAt
+    now >= current.expiresAt
   ) {
     reservations.delete(deviceId);
     closeSessionSockets(
@@ -45,6 +49,24 @@ function getActiveReservation(deviceId) {
     );
     console.log(
       '[expire]',
+      deviceId,
+      current.sessionId
+    );
+    return null;
+  }
+
+  const state = lastSeen.get(deviceId);
+  if (
+    state &&
+    now - state.ts >= OFFLINE_RELEASE_MS
+  ) {
+    reservations.delete(deviceId);
+    closeSessionSockets(
+      current.sessionId,
+      'device_offline'
+    );
+    console.log(
+      '[offline-release]',
       deviceId,
       current.sessionId
     );
@@ -310,6 +332,107 @@ async function handle(req, res) {
     });
   }
 
+  if (req.method === 'POST' && req.url === '/restore') {
+    const body = await readJson(req);
+    const deviceId = String(body.deviceId || '').trim();
+    const deviceKey = String(body.deviceKey || '').trim();
+    const renterId = String(body.renterId || '').trim();
+    const sessionId = String(body.sessionId || '').trim();
+    const viewerToken = String(body.viewerToken || '').trim();
+    const startedAt = Date.parse(
+      String(body.startedAt || '')
+    );
+    const expiresAt = Date.parse(
+      String(body.expiresAt || '')
+    );
+
+    if (
+      !deviceId ||
+      deviceKey.length < 32 ||
+      !renterId ||
+      !sessionId ||
+      !viewerToken ||
+      !Number.isFinite(startedAt) ||
+      !Number.isFinite(expiresAt) ||
+      expiresAt <= Date.now()
+    ) {
+      return json(res, 400, {
+        error: 'invalid_restore'
+      });
+    }
+
+    const state = lastSeen.get(deviceId);
+    if (
+      !state ||
+      state.keyHash !== hashKey(deviceKey)
+    ) {
+      return json(res, 409, {
+        error: 'device_not_ready'
+      });
+    }
+
+    if (Date.now() - state.ts > 120_000) {
+      return json(res, 409, {
+        error: 'device_offline'
+      });
+    }
+
+    let viewer;
+    try {
+      viewer = verifyToken(
+        viewerToken,
+        'viewer'
+      );
+    } catch (error) {
+      return json(res, 403, {
+        error: error.message
+      });
+    }
+
+    if (
+      viewer.deviceId !== deviceId ||
+      viewer.sessionId !== sessionId
+    ) {
+      return json(res, 403, {
+        error: 'restore_token_mismatch'
+      });
+    }
+
+    const existing = getActiveReservation(deviceId);
+    if (
+      existing &&
+      existing.sessionId !== sessionId
+    ) {
+      return json(res, 409, {
+        error: 'device_busy'
+      });
+    }
+
+    reservations.set(deviceId, {
+      sessionId,
+      renterId,
+      keyHash: hashKey(deviceKey),
+      startedAt,
+      expiresAt,
+      viewerToken
+    });
+
+    console.log(
+      '[restore]',
+      deviceId,
+      sessionId
+    );
+
+    return json(res, 200, {
+      restored: true,
+      sessionId,
+      startedAt:
+        new Date(startedAt).toISOString(),
+      expiresAt:
+        new Date(expiresAt).toISOString()
+    });
+  }
+
   if (req.method === 'POST' && req.url === '/release') {
     const body = await readJson(req);
     const deviceId = String(body.deviceId || '').trim();
@@ -405,7 +528,15 @@ async function handle(req, res) {
       lastSeenAt: new Date(state.ts).toISOString(),
       agentInfo: state.agentInfo,
       busy: Boolean(current),
-      sessionId: current?.sessionId || null
+      sessionId: current?.sessionId || null,
+      offlineForSeconds: online
+        ? 0
+        : Math.max(
+            0,
+            Math.floor(
+              (Date.now() - state.ts) / 1000
+            )
+          )
     });
   }
 
@@ -543,6 +674,12 @@ wss.on('connection', (ws, _req, meta) => {
     );
   });
 });
+
+setInterval(() => {
+  for (const deviceId of reservations.keys()) {
+    getActiveReservation(deviceId);
+  }
+}, 30_000).unref();
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('PhoneBridge Agent API listening on', PORT);
