@@ -176,7 +176,8 @@ async function agentRequest<T>(
 
 function safeOwnedDevice(
   device: Device & { id: string },
-  status?: AgentStatus
+  status?: AgentStatus,
+  durableBusy = false
 ) {
   const {
     bridgeKey: _bridgeKey,
@@ -191,6 +192,7 @@ function safeOwnedDevice(
       (device.status === 'paired' ? 'offline' : 'pending'),
     lastSeenAt: status?.lastSeenAt || device.lastSeenAt || null,
     lastAgentInfo: status?.agentInfo || device.lastAgentInfo || null,
+    busy: Boolean(status?.busy) || durableBusy,
   };
 }
 
@@ -1087,6 +1089,10 @@ export const handler = router({
       const { items } = await db.list<Device>(deviceTable(ctx.user!.userId), {
         limit: 100,
       });
+      const activeLocks = await listActiveRentalLocks();
+      const busyOwnerDeviceIds = new Set(
+        activeLocks.map(lock => lock.ownerDeviceId)
+      );
 
       const devices = await Promise.all(
         items.map(async original => {
@@ -1098,8 +1104,15 @@ export const handler = router({
             // Keep the owner dashboard usable even if catalog sync fails.
           }
 
+          const durableBusy =
+            busyOwnerDeviceIds.has(device.id);
+
           if (!device.bridgeKey) {
-            return safeOwnedDevice(device);
+            return safeOwnedDevice(
+              device,
+              undefined,
+              durableBusy
+            );
           }
 
           try {
@@ -1107,13 +1120,21 @@ export const handler = router({
               deviceId: device.id,
               deviceKey: device.bridgeKey,
             });
-            return safeOwnedDevice(device, status);
+            return safeOwnedDevice(
+              device,
+              status,
+              durableBusy
+            );
           } catch {
-            return safeOwnedDevice(device, {
-              connectionStatus:
-                device.status === 'paired' ? 'offline' : 'pending',
-              lastSeenAt: device.lastSeenAt || null,
-            });
+            return safeOwnedDevice(
+              device,
+              {
+                connectionStatus:
+                  device.status === 'paired' ? 'offline' : 'pending',
+                lastSeenAt: device.lastSeenAt || null,
+              },
+              durableBusy
+            );
           }
         })
       );
@@ -1169,6 +1190,97 @@ export const handler = router({
       return json({
         device: safeOwnedDevice(device),
       }, 201);
+    },
+  ],
+
+  'POST /api/devices/:id/stop-rental': [
+    requireAuth(),
+    async ctx => {
+      const profile = await getProfile(
+        ctx.user!.userId
+      );
+      if (
+        !profile ||
+        profile.role !== 'host'
+      ) {
+        return error('host_only', 403);
+      }
+
+      const existing = await getOwnedDevice(
+        ctx.user!.userId,
+        ctx.params.id
+      );
+      if (!existing) {
+        return error('device_not_found', 404);
+      }
+
+      const device = await ensureCatalogDevice(
+        ctx.user!.userId,
+        {
+          id: ctx.params.id,
+          ...existing,
+        }
+      );
+
+      if (!device.catalogId) {
+        return error(
+          'catalog_device_not_found',
+          404
+        );
+      }
+
+      const lock = await getActiveRentalLock(
+        device.catalogId
+      );
+
+      if (!lock) {
+        return json({
+          stopped: true,
+          alreadyEnded: true,
+        });
+      }
+
+      const [session] =
+        await db.get<RentalSession>(
+          rentalTable(lock.renterId),
+          [lock.rentalId]
+        );
+
+      if (!session) {
+        await releaseRentalLock(
+          lock.rentalId,
+          lock.catalogId
+        );
+        return json({
+          stopped: true,
+          alreadyEnded: true,
+        });
+      }
+
+      try {
+        const updated = await finishRental(
+          lock.renterId,
+          lock.rentalId,
+          session,
+          {
+            reason: 'stopped_by_owner',
+          }
+        );
+
+        return json({
+          stopped: true,
+          session: {
+            id: lock.rentalId,
+            ...updated,
+          },
+        });
+      } catch (stopError) {
+        const message =
+          stopError instanceof Error
+            ? stopError.message
+            : 'rental_stop_failed';
+        return error(message, 409);
+      }
     },
   ],
 
