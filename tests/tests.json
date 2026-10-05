@@ -397,5 +397,27 @@
       "Submit the request"
     ],
     "expected": "A pending withdrawal request is created with the host wallet address and the requested USD value is removed from available host earnings."
+  },
+  {
+    "name": "Admin payout page is restricted to one authenticated email",
+    "viewport": "desktop",
+    "covers": [
+      "GET /api/payments/admin/status",
+      "GET /api/payments/admin/withdrawals",
+      "POST /api/payments/admin/withdrawals/:id/paid",
+      "POST /api/payments/admin/withdrawals/:id/reject",
+      "dedicated Admin view"
+    ],
+    "setup": [
+      "Sign in with the configured admin account",
+      "Have at least one pending host withdrawal"
+    ],
+    "description": "Verifies the Admin navigation and payout queue are available only to the single configured authenticated email, with the same restriction enforced by the backend.",
+    "steps": [
+      "Sign in with the configured admin email and open Admin",
+      "Confirm pending payout requests are visible",
+      "Sign in with a different account and attempt the same API/page access"
+    ],
+    "expected": "Only the configured admin email can access the Admin page or payout APIs; all other authenticated users receive no Admin navigation and a 403 from protected admin APIs."
   }
 ]
