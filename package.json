@@ -9,7 +9,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "lucide": "^0.469.0"
+    "lucide": "^0.469.0",
+    "@solflare-wallet/sdk": "latest",
+    "@solana/web3.js": "^1.98.4",
+    "tweetnacl": "^1.0.3"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.0.0"
