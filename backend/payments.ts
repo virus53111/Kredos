@@ -24,6 +24,8 @@ const withdrawalTable = 'withdrawal_requests';
 const receiptTable = 'sol_payment_receipts';
 const settlementTable = (userId: string) =>
   'rental_settlements_' + userId;
+const ledgerTable = (userId: string) =>
+  'money_ledger_' + userId;
 
 export interface MoneyAccount {
   renterBalanceMicros: number;
@@ -58,6 +60,23 @@ interface Withdrawal {
   paidTxSignature?: string;
   paidSolAmount?: number;
   rejectedAt?: string;
+}
+
+interface LedgerEntry {
+  uniqueKey: string;
+  type:
+    | 'deposit'
+    | 'rental_charge'
+    | 'host_earning'
+    | 'withdrawal_requested'
+    | 'withdrawal_paid'
+    | 'withdrawal_rejected';
+  amountMicros: number;
+  balanceKind: 'renter' | 'host';
+  direction: 'credit' | 'debit' | 'info';
+  createdAt: string;
+  referenceId?: string;
+  note?: string;
 }
 
 interface ParsedInstruction {
@@ -208,6 +227,38 @@ async function saveMoneyAccount(
   );
 
   if (!ok) throw new Error('money_account_update_failed');
+}
+
+async function addLedgerEntry(
+  userId: string,
+  entry: LedgerEntry
+): Promise<void> {
+  const table = ledgerTable(userId);
+  const { items } = await db.list<LedgerEntry>(
+    table,
+    {
+      filter: {
+        uniqueKey: entry.uniqueKey,
+      },
+      limit: 10,
+    }
+  );
+
+  if (
+    items.some(
+      item =>
+        item.uniqueKey === entry.uniqueKey
+    )
+  ) {
+    return;
+  }
+
+  const [id] = await db.add(table, [entry]);
+  if (!id) {
+    throw new Error(
+      'ledger_entry_create_failed'
+    );
+  }
 }
 
 async function isSignatureUsed(
@@ -410,6 +461,21 @@ export async function settleRentalBalances(
         },
       },
     ]);
+
+    await addLedgerEntry(
+      renterId,
+      {
+        uniqueKey:
+          'rental_charge:' + settlementId,
+        type: 'rental_charge',
+        amountMicros: totalMicros,
+        balanceKind: 'renter',
+        direction: 'debit',
+        createdAt:
+          new Date().toISOString(),
+        referenceId: settlementId,
+      }
+    );
   }
 
   if (!marker.hostCredited) {
@@ -431,6 +497,21 @@ export async function settleRentalBalances(
         },
       },
     ]);
+
+    await addLedgerEntry(
+      ownerId,
+      {
+        uniqueKey:
+          'host_earning:' + settlementId,
+        type: 'host_earning',
+        amountMicros: hostMicros,
+        balanceKind: 'host',
+        direction: 'credit',
+        createdAt:
+          new Date().toISOString(),
+        referenceId: settlementId,
+      }
+    );
   }
 
   await db.update(table, [
@@ -675,6 +756,9 @@ export const paymentRoutes: RouterRoutes = {
         },
       ]);
 
+      const confirmedAt =
+        new Date().toISOString();
+
       await db.update(
         depositTable(ctx.user!.userId),
         [
@@ -684,12 +768,34 @@ export const paymentRoutes: RouterRoutes = {
               ...deposit,
               status: 'confirmed',
               signature,
-              confirmedAt:
-                new Date().toISOString(),
+              confirmedAt,
             },
           },
         ]
       );
+
+      try {
+        await addLedgerEntry(
+          ctx.user!.userId,
+          {
+            uniqueKey:
+              'deposit:' + ctx.params.id,
+            type: 'deposit',
+            amountMicros:
+              deposit.usdMicros,
+            balanceKind: 'renter',
+            direction: 'credit',
+            createdAt: confirmedAt,
+            referenceId:
+              ctx.params.id,
+          }
+        );
+      } catch (ledgerError) {
+        console.error(
+          'deposit_ledger_failed',
+          ledgerError
+        );
+      }
 
       return json({
         confirmed: true,
@@ -874,6 +980,29 @@ export const paymentRoutes: RouterRoutes = {
         );
       }
 
+      try {
+        await addLedgerEntry(
+          ctx.user!.userId,
+          {
+            uniqueKey:
+              'withdrawal_requested:' + id,
+            type: 'withdrawal_requested',
+            amountMicros: usdMicros,
+            balanceKind: 'host',
+            direction: 'debit',
+            createdAt:
+              record.createdAt,
+            referenceId: id,
+            note: walletAddress,
+          }
+        );
+      } catch (ledgerError) {
+        console.error(
+          'withdrawal_ledger_failed',
+          ledgerError
+        );
+      }
+
       return json({
         withdrawal: {
           id,
@@ -886,6 +1015,44 @@ export const paymentRoutes: RouterRoutes = {
           account.hostBalanceMicros
         ),
       }, 201);
+    },
+  ],
+
+  'GET /api/payments/history': [
+    requireAuth(),
+    async (ctx: {
+      user?: {
+        userId: string;
+      };
+    }) => {
+      const { items } =
+        await db.list<LedgerEntry>(
+          ledgerTable(ctx.user!.userId),
+          { limit: 100 }
+        );
+
+      return json({
+        history: items
+          .sort(
+            (a, b) =>
+              Date.parse(b.createdAt) -
+              Date.parse(a.createdAt)
+          )
+          .map(item => ({
+            id: item.id,
+            type: item.type,
+            amountUsd: microsToUsd(
+              item.amountMicros
+            ),
+            balanceKind:
+              item.balanceKind,
+            direction: item.direction,
+            createdAt: item.createdAt,
+            referenceId:
+              item.referenceId || null,
+            note: item.note || null,
+          })),
+      });
     },
   ],
 
@@ -1027,6 +1194,9 @@ export const paymentRoutes: RouterRoutes = {
         return error(message, 409);
       }
 
+      const paidAt =
+        new Date().toISOString();
+
       await db.update(
         withdrawalTable,
         [
@@ -1035,14 +1205,38 @@ export const paymentRoutes: RouterRoutes = {
             record: {
               ...request,
               status: 'paid',
-              paidAt:
-                new Date().toISOString(),
+              paidAt,
               paidTxSignature: txSignature,
               paidSolAmount: solAmount,
             },
           },
         ]
       );
+
+      try {
+        await addLedgerEntry(
+          request.userId,
+          {
+            uniqueKey:
+              'withdrawal_paid:' +
+              ctx.params.id,
+            type: 'withdrawal_paid',
+            amountMicros:
+              request.usdMicros,
+            balanceKind: 'host',
+            direction: 'info',
+            createdAt: paidAt,
+            referenceId:
+              ctx.params.id,
+            note: txSignature,
+          }
+        );
+      } catch (ledgerError) {
+        console.error(
+          'withdrawal_paid_ledger_failed',
+          ledgerError
+        );
+      }
 
       return json({
         paid: true,
@@ -1099,6 +1293,9 @@ export const paymentRoutes: RouterRoutes = {
         account
       );
 
+      const rejectedAt =
+        new Date().toISOString();
+
       await db.update(
         withdrawalTable,
         [
@@ -1107,12 +1304,35 @@ export const paymentRoutes: RouterRoutes = {
             record: {
               ...request,
               status: 'rejected',
-              rejectedAt:
-                new Date().toISOString(),
+              rejectedAt,
             },
           },
         ]
       );
+
+      try {
+        await addLedgerEntry(
+          request.userId,
+          {
+            uniqueKey:
+              'withdrawal_rejected:' +
+              ctx.params.id,
+            type: 'withdrawal_rejected',
+            amountMicros:
+              request.usdMicros,
+            balanceKind: 'host',
+            direction: 'credit',
+            createdAt: rejectedAt,
+            referenceId:
+              ctx.params.id,
+          }
+        );
+      } catch (ledgerError) {
+        console.error(
+          'withdrawal_reject_ledger_failed',
+          ledgerError
+        );
+      }
 
       return json({
         rejected: true,
