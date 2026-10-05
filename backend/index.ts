@@ -1,4 +1,9 @@
 import { db, error, json, requireAuth, router } from '@appdeploy/sdk';
+import {
+  getMoneyAccount,
+  paymentRoutes,
+  settleRentalBalances,
+} from './payments';
 
 type Role = 'renter' | 'host';
 type ConnectionStatus = 'pending' | 'online' | 'offline';
@@ -75,6 +80,8 @@ interface RentalSession {
   totalAmount?: number;
   hostAmount?: number;
   selfTest: boolean;
+  expiresAt?: string;
+  settled?: boolean;
 }
 
 const AGENT_API = 'https://phonebridge-agent-api.onrender.com';
@@ -230,7 +237,113 @@ async function ensureCatalogDevice(
   return next;
 }
 
+async function finishRental(
+  renterId: string,
+  rentalId: string,
+  session: RentalSession
+): Promise<RentalSession> {
+  if (
+    session.status === 'ended' &&
+    session.settled
+  ) {
+    return session;
+  }
+
+  const [catalogItem] =
+    await db.get<CatalogDevice>(
+      CATALOG_TABLE,
+      [session.catalogId]
+    );
+
+  if (catalogItem) {
+    try {
+      await agentRequest('/release', {
+        deviceId: session.ownerDeviceId,
+        deviceKey: catalogItem.bridgeKey,
+        sessionId: session.renderSessionId,
+      });
+    } catch {
+      // Billing and local session close must not depend on Render release.
+    }
+  }
+
+  const now = Date.now();
+  const expiry = session.expiresAt
+    ? Date.parse(session.expiresAt)
+    : now;
+  const effectiveEnd =
+    session.expiresAt
+      ? Math.min(now, expiry)
+      : now;
+  const endedAt =
+    new Date(effectiveEnd).toISOString();
+
+  const billedSeconds = Math.max(
+    1,
+    Math.ceil(
+      (
+        effectiveEnd -
+        Date.parse(session.startedAt)
+      ) / 1000
+    )
+  );
+
+  const rawTotal =
+    (billedSeconds / 3600) *
+    session.hourlyRate;
+  const rawHost =
+    (billedSeconds / 3600) *
+    session.hostRate;
+
+  const totalAmount =
+    session.selfTest
+      ? 0
+      : Number(rawTotal.toFixed(6));
+  const hostAmount =
+    session.selfTest
+      ? 0
+      : Number(rawHost.toFixed(6));
+
+  if (!session.selfTest) {
+    await settleRentalBalances(
+      rentalId,
+      renterId,
+      session.ownerId,
+      Math.round(totalAmount * 1_000_000),
+      Math.round(hostAmount * 1_000_000)
+    );
+  }
+
+  const updated: RentalSession = {
+    ...session,
+    status: 'ended',
+    endedAt,
+    billedSeconds,
+    totalAmount,
+    hostAmount,
+    settled: true,
+  };
+
+  const [ok] = await db.update(
+    rentalTable(renterId),
+    [
+      {
+        id: rentalId,
+        record: updated,
+      },
+    ]
+  );
+
+  if (!ok) {
+    throw new Error('rental_end_failed');
+  }
+
+  return updated;
+}
+
 export const handler = router({
+  ...paymentRoutes,
+
   'GET /api/_healthcheck': [async () => json({ message: 'Success' })],
 
   'GET /api/catalog': [
@@ -296,6 +409,45 @@ export const handler = router({
         return error('device_not_accepting_rentals', 409);
       }
 
+      const selfTest =
+        item.ownerId === ctx.user!.userId;
+      let maxSeconds = 24 * 60 * 60;
+
+      if (!selfTest) {
+        const account = await getMoneyAccount(
+          ctx.user!.userId
+        );
+        const hourlyMicros = Math.max(
+          1,
+          Math.round(
+            item.hourlyRate * 1_000_000
+          )
+        );
+
+        if (
+          account.renterBalanceMicros <
+          hourlyMicros
+        ) {
+          return error(
+            'insufficient_balance',
+            402
+          );
+        }
+
+        maxSeconds = Math.max(
+          60,
+          Math.min(
+            24 * 60 * 60,
+            Math.floor(
+              (
+                account.renterBalanceMicros /
+                hourlyMicros
+              ) * 3600
+            )
+          )
+        );
+      }
+
       let status: AgentStatus;
       try {
         status = await agentRequest<AgentStatus>('/status', {
@@ -317,6 +469,7 @@ export const handler = router({
         sessionId: string;
         startedAt: string;
         viewerToken: string;
+        expiresAt: string;
       };
 
       try {
@@ -324,6 +477,7 @@ export const handler = router({
           deviceId: item.ownerDeviceId,
           deviceKey: item.bridgeKey,
           renterId: ctx.user!.userId,
+          maxSeconds,
         });
       } catch (reserveError) {
         const message =
@@ -333,7 +487,6 @@ export const handler = router({
         return error(message, 409);
       }
 
-      const selfTest = item.ownerId === ctx.user!.userId;
       const record: RentalSession = {
         catalogId,
         ownerId: item.ownerId,
@@ -346,7 +499,9 @@ export const handler = router({
         viewerToken: reservation.viewerToken,
         status: 'active',
         startedAt: reservation.startedAt,
+        expiresAt: reservation.expiresAt,
         selfTest,
+        settled: false,
       };
 
       const [id] = await db.add(
@@ -385,8 +540,38 @@ export const handler = router({
         { limit: 50 }
       );
 
-      const sessions = items
+      const active = items
         .filter(item => item.status === 'active')
+        .sort(
+          (a, b) =>
+            Date.parse(b.startedAt) -
+            Date.parse(a.startedAt)
+        );
+
+      for (const session of active) {
+        if (
+          session.expiresAt &&
+          Date.now() >=
+            Date.parse(session.expiresAt)
+        ) {
+          await finishRental(
+            ctx.user!.userId,
+            session.id,
+            session
+          );
+        }
+      }
+
+      const { items: refreshed } =
+        await db.list<RentalSession>(
+          rentalTable(ctx.user!.userId),
+          { limit: 50 }
+        );
+
+      const sessions = refreshed
+        .filter(
+          item => item.status === 'active'
+        )
         .sort(
           (a, b) =>
             Date.parse(b.startedAt) -
@@ -400,13 +585,20 @@ export const handler = router({
   'POST /api/rentals/:id/end': [
     requireAuth(),
     async ctx => {
-      const [session] = await db.get<RentalSession>(
-        rentalTable(ctx.user!.userId),
-        [ctx.params.id]
-      );
-      if (!session) return error('rental_not_found', 404);
+      const [session] =
+        await db.get<RentalSession>(
+          rentalTable(ctx.user!.userId),
+          [ctx.params.id]
+        );
 
-      if (session.status === 'ended') {
+      if (!session) {
+        return error('rental_not_found', 404);
+      }
+
+      if (
+        session.status === 'ended' &&
+        session.settled
+      ) {
         return json({
           session: {
             id: ctx.params.id,
@@ -415,67 +607,26 @@ export const handler = router({
         });
       }
 
-      const [catalogItem] = await db.get<CatalogDevice>(
-        CATALOG_TABLE,
-        [session.catalogId]
-      );
+      try {
+        const updated = await finishRental(
+          ctx.user!.userId,
+          ctx.params.id,
+          session
+        );
 
-      if (catalogItem) {
-        try {
-          await agentRequest('/release', {
-            deviceId: session.ownerDeviceId,
-            deviceKey: catalogItem.bridgeKey,
-            sessionId: session.renderSessionId,
-          });
-        } catch {
-          // Ending the local session must still be possible.
-        }
-      }
-
-      const endedAt = new Date().toISOString();
-      const billedSeconds = Math.max(
-        1,
-        Math.ceil(
-          (Date.parse(endedAt) -
-            Date.parse(session.startedAt)) /
-            1000
-        )
-      );
-      const rawTotal =
-        (billedSeconds / 3600) * session.hourlyRate;
-      const rawHost =
-        (billedSeconds / 3600) * session.hostRate;
-
-      const updated: RentalSession = {
-        ...session,
-        status: 'ended',
-        endedAt,
-        billedSeconds,
-        totalAmount: session.selfTest
-          ? 0
-          : Number(rawTotal.toFixed(6)),
-        hostAmount: session.selfTest
-          ? 0
-          : Number(rawHost.toFixed(6)),
-      };
-
-      const [ok] = await db.update(
-        rentalTable(ctx.user!.userId),
-        [
-          {
+        return json({
+          session: {
             id: ctx.params.id,
-            record: updated,
+            ...updated,
           },
-        ]
-      );
-      if (!ok) return error('rental_end_failed', 500);
-
-      return json({
-        session: {
-          id: ctx.params.id,
-          ...updated,
-        },
-      });
+        });
+      } catch (finishError) {
+        const message =
+          finishError instanceof Error
+            ? finishError.message
+            : 'rental_end_failed';
+        return error(message, 409);
+      }
     },
   ],
 
