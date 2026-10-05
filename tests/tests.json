@@ -419,5 +419,67 @@
       "Sign in with a different account and attempt the same API/page access"
     ],
     "expected": "Only the configured admin email can access the Admin page or payout APIs; all other authenticated users receive no Admin navigation and a 403 from protected admin APIs."
+  },
+  {
+    "name": "Active rental survives Render reservation memory loss",
+    "viewport": "mobile",
+    "covers": [
+      "persistent rental lock",
+      "GET /api/rentals/active reconciliation",
+      "POST /restore",
+      "viewer token reuse"
+    ],
+    "setup": [
+      "Start an active rental",
+      "Clear or restart the Render Agent API so its in-memory reservation is lost",
+      "Keep the Android Agent online"
+    ],
+    "description": "Verifies AppDeploy DB remains the source of truth and restores the same rental into Render after a service restart.",
+    "steps": [
+      "Reload the active rental",
+      "Wait for the next active-session reconciliation",
+      "Observe the Android Agent reconnect"
+    ],
+    "expected": "The same rental ID, render session ID and viewer access are restored without allowing a second renter to take the phone."
+  },
+  {
+    "name": "Long-offline phone ends rental without charging the offline tail",
+    "viewport": "mobile",
+    "covers": [
+      "offlineForSeconds",
+      "automatic rental reconciliation",
+      "device_offline ended reason",
+      "billing end cap",
+      "rental lock release"
+    ],
+    "setup": [
+      "Start a paid rental",
+      "Take the Android phone offline long enough to exceed the offline threshold"
+    ],
+    "description": "Verifies a long offline period automatically ends the durable rental and releases the phone.",
+    "steps": [
+      "Wait for active-session reconciliation",
+      "Open Finance after the rental ends"
+    ],
+    "expected": "The session ends with device_offline, access is closed, the durable phone lock is released and billing is capped near the last valid heartbeat grace window."
+  },
+  {
+    "name": "Live session refresh does not rebuild the streaming DOM",
+    "viewport": "mobile",
+    "covers": [
+      "15 second rental reconciliation",
+      "WebSocket continuity",
+      "visibility-aware polling",
+      "reduced payment requests"
+    ],
+    "setup": [
+      "Start an active rental with live video"
+    ],
+    "description": "Verifies background reconciliation does not repeatedly replace the live stream UI or reconnect an already healthy viewer socket.",
+    "steps": [
+      "Keep the rental open for at least 45 seconds",
+      "Switch the browser tab to background and back"
+    ],
+    "expected": "Video remains stable while active, hidden tabs stop periodic refresh work, and returning to the tab performs one reconciliation."
   }
 ]
