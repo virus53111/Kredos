@@ -190,7 +190,7 @@ const words: Record<string, Record<string, string>> = {
     stage: 'Этап 4: реальное подключение Android',
     catalogTitle: 'Каталог телефонов',
     catalogText:
-      'Здесь показываются реальные устройства владельцев. Онлайн-телефоны будут доступны для аренды после подключения сессий.',
+      'Здесь показываются реальные устройства владельцев. Свободный онлайн-телефон можно арендовать и управлять им удалённо.',
     rentSoon: 'Бронирование и удалённая сессия подключаются на этапе 5.',
     viewCatalog: 'Смотреть каталог',
     busy: 'Занят',
@@ -311,7 +311,7 @@ const words: Record<string, Record<string, string>> = {
     stage: 'Stage 4: real Android connection',
     catalogTitle: 'Phone catalog',
     catalogText:
-      'These are real host devices. Online phones will become rentable when remote sessions are enabled.',
+      'These are real host devices. Available online phones can be rented and controlled remotely.',
     rentSoon: 'Booking and remote sessions are being connected in Stage 5.',
     viewCatalog: 'View catalog',
     busy: 'Busy',
@@ -430,7 +430,7 @@ const words: Record<string, Record<string, string>> = {
     never: 'nav bijis',
     stage: '4. posms: reāls Android savienojums',
     catalogTitle: 'Tālruņu katalogs',
-    catalogText: 'Šeit redzamas reālas īpašnieku ierīces.',
+    catalogText: 'Šeit redzamas reālas īpašnieku ierīces, kuras var nomāt un vadīt attālināti.',
     rentSoon: 'Rezervēšana un attālinātās sesijas būs 5. posmā.',
     viewCatalog: 'Skatīt katalogu',
     busy: 'Aizņemts',
@@ -514,7 +514,7 @@ const words: Record<string, Record<string, string>> = {
     never: 'pole olnud',
     stage: '4. etapp: päris Androidi ühendus',
     catalogTitle: 'Telefonide kataloog',
-    catalogText: 'Siin kuvatakse päris omanike seadmed.',
+    catalogText: 'Siin kuvatakse päris omanike seadmed, mida saab rentida ja kaugjuhtida.',
     rentSoon: 'Broneerimine ja kaugseansid tulevad 5. etapis.',
     viewCatalog: 'Vaata kataloogi',
     busy: 'Hõivatud',
@@ -598,7 +598,7 @@ const words: Record<string, Record<string, string>> = {
     never: 'dar nebuvo',
     stage: '4 etapas: tikras Android ryšys',
     catalogTitle: 'Telefonų katalogas',
-    catalogText: 'Čia rodomi tikri savininkų įrenginiai.',
+    catalogText: 'Čia rodomi tikri savininkų įrenginiai, kuriuos galima nuomoti ir valdyti nuotoliniu būdu.',
     rentSoon: 'Rezervavimas ir nuotolinės sesijos bus 5 etape.',
     viewCatalog: 'Žiūrėti katalogą',
     busy: 'Užimtas',
@@ -682,7 +682,7 @@ const words: Record<string, Record<string, string>> = {
     never: 'ще не було',
     stage: 'Етап 4: реальне підключення Android',
     catalogTitle: 'Каталог телефонів',
-    catalogText: 'Тут показуються реальні пристрої власників.',
+    catalogText: 'Тут показуються реальні пристрої власників, які можна орендувати та керувати ними віддалено.',
     rentSoon: 'Бронювання та віддалені сесії будуть на етапі 5.',
     viewCatalog: 'Дивитися каталог',
     busy: 'Зайнятий',
@@ -888,7 +888,7 @@ function landing(): string {
         <span class="logo">PB</span>
         <span>PhoneBridge</span>
       </div>
-      <span>Stage 4 · shared catalog</span>
+      <span>Real Android · Remote access</span>
     </footer>
   `;
 }
@@ -1121,8 +1121,6 @@ function dashboard(): string {
   return `
     ${header()}
     <main class="dashboard shell">
-      <div class="notice">${t('stage')}</div>
-
       <div class="dash-head">
         <div>
           <div class="eyebrow">${isHost ? 'HOST' : 'RENTER'}</div>
