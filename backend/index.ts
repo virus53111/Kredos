@@ -424,9 +424,13 @@ export const handler = router({
           )
         );
 
+        const minimumMicros = Math.ceil(
+          hourlyMicros / 60
+        );
+
         if (
           account.renterBalanceMicros <
-          hourlyMicros
+          minimumMicros
         ) {
           return error(
             'insufficient_balance',
