@@ -1309,10 +1309,6 @@ function renterPaymentPanel(): string {
 
 function renterBody(): string {
   return `
-    ${renterPaymentPanel()}
-
-    <div style="height:16px"></div>
-
     <div class="grid">
       <section class="panel">
         <h2>${t('catalog')}</h2>
@@ -1599,8 +1595,6 @@ function hostBody(): string {
   return `
     ${agentPanel()}
     <div style="height:16px"></div>
-    ${hostPayoutPanel()}
-    <div style="height:16px"></div>
     ${formOpen ? phoneForm() : ''}
 
     <div class="grid">
@@ -1880,7 +1874,7 @@ function bind(): void {
           return;
         }
 
-        await loadPayments();
+        await loadPayments('finance');
         currentView = 'finance';
         startRefresh();
         render();
@@ -1892,7 +1886,7 @@ function bind(): void {
           return;
         }
 
-        await loadPayments();
+        await loadPayments('admin');
         if (!adminEnabled) {
           currentView = 'dashboard';
           render();
@@ -2186,7 +2180,14 @@ async function start(preferred: Role | null): Promise<void> {
   }
 }
 
-async function loadPayments(): Promise<void> {
+type PaymentLoadMode =
+  | 'summary'
+  | 'finance'
+  | 'admin';
+
+async function loadPayments(
+  mode: PaymentLoadMode = 'summary'
+): Promise<void> {
   if (!user) {
     moneyAccount = null;
     treasuryWallet = '';
@@ -2199,38 +2200,63 @@ async function loadPayments(): Promise<void> {
   }
 
   try {
+    if (mode === 'admin') {
+      const adminResponse = await api.get(
+        '/api/payments/admin/status'
+      );
+
+      adminEnabled = Boolean(
+        adminResponse.data.isAdmin
+      );
+      treasuryWallet =
+        adminResponse.data.treasuryWallet || '';
+
+      if (adminEnabled) {
+        const pending = await api.get(
+          '/api/payments/admin/withdrawals'
+        );
+        adminWithdrawals =
+          pending.data.withdrawals || [];
+      } else {
+        adminWithdrawals = [];
+      }
+
+      return;
+    }
+
     const [
       accountResponse,
+      adminResponse,
       depositsResponse,
       withdrawalsResponse,
-      adminResponse,
     ] = await Promise.all([
       api.get('/api/payments/account'),
-      api.get('/api/payments/deposits'),
-      api.get('/api/payments/withdrawals'),
       api.get('/api/payments/admin/status'),
+      mode === 'finance'
+        ? api.get('/api/payments/deposits')
+        : Promise.resolve({
+            data: { deposits: myDeposits },
+          }),
+      mode === 'finance'
+        ? api.get('/api/payments/withdrawals')
+        : Promise.resolve({
+            data: { withdrawals: myWithdrawals },
+          }),
     ]);
 
     moneyAccount =
       accountResponse.data.account || null;
     treasuryWallet =
       accountResponse.data.treasuryWallet || '';
-    myDeposits =
-      depositsResponse.data.deposits || [];
-    myWithdrawals =
-      withdrawalsResponse.data.withdrawals || [];
     adminEnabled = Boolean(
       adminResponse.data.isAdmin
     );
 
-    if (adminEnabled) {
-      const pending = await api.get(
-        '/api/payments/admin/withdrawals'
-      );
-      adminWithdrawals =
-        pending.data.withdrawals || [];
-    } else {
-      adminWithdrawals = [];
+    if (mode === 'finance') {
+      myDeposits =
+        depositsResponse.data.deposits || [];
+      myWithdrawals =
+        withdrawalsResponse.data.withdrawals || [];
     }
   } catch (error) {
     console.error(error);
@@ -2298,7 +2324,7 @@ async function confirmDeposit(
     depositQuote = null;
     paymentMessage =
       t('depositConfirmed') + ' ✓';
-    await loadPayments();
+    await loadPayments(currentView === 'admin' ? 'admin' : 'finance');
     render();
   } catch (error) {
     console.error(error);
@@ -2338,7 +2364,7 @@ async function submitWithdrawal(
 
     paymentMessage =
       t('withdrawalPending');
-    await loadPayments();
+    await loadPayments(currentView === 'admin' ? 'admin' : 'finance');
     render();
   } catch (error) {
     console.error(error);
@@ -2378,7 +2404,7 @@ async function markWithdrawalPaid(
       }
     );
 
-    await loadPayments();
+    await loadPayments(currentView === 'admin' ? 'admin' : 'finance');
     render();
   } catch (error) {
     console.error(error);
@@ -2398,7 +2424,7 @@ async function rejectWithdrawal(
       {}
     );
 
-    await loadPayments();
+    await loadPayments(currentView === 'admin' ? 'admin' : 'finance');
     render();
   } catch (error) {
     console.error(error);
@@ -2411,7 +2437,7 @@ async function loadProfile(): Promise<void> {
   try {
     const response = await api.get('/api/profile');
     profile = response.data.profile || null;
-    await loadPayments();
+    await loadPayments('summary');
 
     if (profile?.role === 'host') {
       await loadDevices();
@@ -2709,28 +2735,36 @@ async function openCatalog(): Promise<void> {
 function startRefresh(): void {
   stopRefresh();
 
+  const refreshMs =
+    currentView === 'session'
+      ? 15_000
+      : 30_000;
+
   refreshTimer = window.setInterval(async () => {
+    if (document.visibilityState === 'hidden') {
+      return;
+    }
+
     try {
+      let shouldRender = true;
+
       if (
         currentView === 'finance' &&
         user
       ) {
-        await loadPayments();
-        render();
+        await loadPayments('finance');
       } else if (
         currentView === 'admin' &&
         user &&
         adminEnabled
       ) {
-        await loadPayments();
-        render();
+        await loadPayments('admin');
       } else if (
         currentView === 'dashboard' &&
         user &&
         profile?.role === 'host'
       ) {
         await loadDevices();
-        await loadPayments();
       } else if (
         currentView === 'catalog' ||
         currentView === 'home'
@@ -2742,14 +2776,19 @@ function startRefresh(): void {
         if (!activeSession) {
           currentView = 'catalog';
           await loadCatalog();
+        } else {
+          // Keep the video DOM and WebSocket intact.
+          shouldRender = false;
         }
       }
 
-      render();
+      if (shouldRender) {
+        render();
+      }
     } catch (error) {
       console.error(error);
     }
-  }, 30_000);
+  }, refreshMs);
 }
 
 function stopRefresh(): void {
@@ -2813,6 +2852,37 @@ async function submitPhone(event: Event): Promise<void> {
     render();
   }
 }
+
+document.addEventListener(
+  'visibilitychange',
+  async () => {
+    if (
+      document.visibilityState !== 'visible' ||
+      !user
+    ) {
+      return;
+    }
+
+    try {
+      if (currentView === 'session') {
+        await loadActiveRental();
+      } else if (currentView === 'finance') {
+        await loadPayments('finance');
+      } else if (currentView === 'admin') {
+        await loadPayments('admin');
+      } else if (
+        currentView === 'dashboard' &&
+        profile?.role === 'host'
+      ) {
+        await loadDevices();
+      }
+      render();
+      startRefresh();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+);
 
 async function boot(): Promise<void> {
   user = await auth.getUser();
