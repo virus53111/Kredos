@@ -10,8 +10,7 @@
   },
   "dependencies": {
     "lucide": "^0.469.0",
-    "@solana/web3.js": "^1.98.4",
-    "tweetnacl": "^1.0.3"
+    "@solana/web3.js": "^1.98.4"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.0.0"
