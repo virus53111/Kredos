@@ -637,12 +637,11 @@ export const handler = router({
           [device.catalogId]
         );
         if (catalog) {
-          const { id: catalogId, ...catalogRecord } = catalog;
           await db.update(CATALOG_TABLE, [
             {
-              id: catalogId,
+              id: device.catalogId,
               record: {
-                ...catalogRecord,
+                ...catalog,
                 acceptingRentals: body.available,
               },
             },
