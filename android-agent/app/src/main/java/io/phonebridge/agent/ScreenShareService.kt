@@ -137,7 +137,7 @@ class ScreenShareService : Service() {
         val metrics = resources.displayMetrics
         val sourceWidth = metrics.widthPixels
         val sourceHeight = metrics.heightPixels
-        val targetWidth = minOf(540, sourceWidth)
+        val targetWidth = minOf(480, sourceWidth)
         val targetHeight = maxOf(
             1,
             (sourceHeight.toLong() * targetWidth / sourceWidth)
@@ -199,7 +199,7 @@ class ScreenShareService : Service() {
         if (!socketOpen || activeSessionId == null) return
 
         val now = System.currentTimeMillis()
-        if (now - lastFrameAt < 250) return
+        if (now - lastFrameAt < 333) return
         lastFrameAt = now
 
         val plane = image.planes.firstOrNull() ?: return
@@ -231,7 +231,7 @@ class ScreenShareService : Service() {
         val jpeg = ByteArrayOutputStream().use { output ->
             cropped.compress(
                 Bitmap.CompressFormat.JPEG,
-                55,
+                50,
                 output
             )
             output.toByteArray()
