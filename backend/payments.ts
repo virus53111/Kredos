@@ -335,54 +335,102 @@ export async function settleRentalBalances(
   const { items } = await db.list<{
     settlementId: string;
     status: string;
+    totalMicros: number;
+    hostMicros: number;
+    renterDebited?: boolean;
+    hostCredited?: boolean;
+    createdAt: string;
+    settledAt?: string;
   }>(table, {
     filter: { settlementId },
     limit: 50,
   });
 
-  if (
-    items.some(
-      item =>
-        item.settlementId === settlementId &&
-        item.status === 'done'
-    )
-  ) {
+  let marker = items.find(
+    item => item.settlementId === settlementId
+  );
+
+  if (marker?.status === 'done') {
     return;
   }
 
-  const renter = await getMoneyAccount(renterId);
-  const host = await getMoneyAccount(ownerId);
+  let markerId = marker?.id;
 
-  if (renter.renterBalanceMicros < totalMicros) {
-    throw new Error('insufficient_balance');
+  if (!marker) {
+    const record = {
+      settlementId,
+      status: 'pending',
+      totalMicros,
+      hostMicros,
+      renterDebited: false,
+      hostCredited: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    const [id] = await db.add(table, [record]);
+    if (!id) {
+      throw new Error('settlement_marker_failed');
+    }
+
+    markerId = id;
+    marker = {
+      id,
+      ...record,
+    };
   }
 
-  const marker = {
-    settlementId,
-    status: 'pending',
-    totalMicros,
-    hostMicros,
-    createdAt: new Date().toISOString(),
-  };
-
-  const [markerId] = await db.add(table, [marker]);
   if (!markerId) {
     throw new Error('settlement_marker_failed');
   }
 
-  const renterBefore = renter.renterBalanceMicros;
+  if (!marker.renterDebited) {
+    const renter = await getMoneyAccount(renterId);
 
-  renter.renterBalanceMicros -= totalMicros;
-  await saveMoneyAccount(renterId, renter);
+    if (
+      renter.renterBalanceMicros <
+      totalMicros
+    ) {
+      throw new Error('insufficient_balance');
+    }
 
-  try {
+    renter.renterBalanceMicros -= totalMicros;
+    await saveMoneyAccount(renterId, renter);
+
+    marker = {
+      ...marker,
+      renterDebited: true,
+    };
+
+    await db.update(table, [
+      {
+        id: markerId,
+        record: {
+          ...marker,
+          status: 'pending',
+        },
+      },
+    ]);
+  }
+
+  if (!marker.hostCredited) {
+    const host = await getMoneyAccount(ownerId);
     host.hostBalanceMicros += hostMicros;
     await saveMoneyAccount(ownerId, host);
-  } catch (error) {
-    renter.renterBalanceMicros = renterBefore;
-    await saveMoneyAccount(renterId, renter);
-    await db.delete(table, [markerId]);
-    throw error;
+
+    marker = {
+      ...marker,
+      hostCredited: true,
+    };
+
+    await db.update(table, [
+      {
+        id: markerId,
+        record: {
+          ...marker,
+          status: 'pending',
+        },
+      },
+    ]);
   }
 
   await db.update(table, [
