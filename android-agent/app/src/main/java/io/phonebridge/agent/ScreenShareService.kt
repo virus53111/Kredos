@@ -52,6 +52,9 @@ class ScreenShareService : Service() {
     private var socketOpen = false
 
     @Volatile
+    private var socketConnecting = false
+
+    @Volatile
     private var lastFrameAt = 0L
 
     override fun onCreate() {
@@ -295,7 +298,8 @@ class ScreenShareService : Service() {
                                 }
                             } else if (
                                 nextId != null &&
-                                !socketOpen
+                                !socketOpen &&
+                                !socketConnecting
                             ) {
                                 openSocket(nextId, token)
                             }
@@ -314,6 +318,9 @@ class ScreenShareService : Service() {
         sessionId: String,
         deviceToken: String
     ) {
+        if (socketOpen || socketConnecting) return
+        socketConnecting = true
+
         val wsBase = BuildConfig.API_BASE_URL
             .replace("https://", "wss://")
             .replace("http://", "ws://")
@@ -342,6 +349,7 @@ class ScreenShareService : Service() {
                     webSocket: WebSocket,
                     response: Response
                 ) {
+                    socketConnecting = false
                     socketOpen = true
                     updateNotification(
                         "Streaming · rental active"
@@ -360,6 +368,7 @@ class ScreenShareService : Service() {
                     t: Throwable,
                     response: Response?
                 ) {
+                    socketConnecting = false
                     socketOpen = false
                 }
 
@@ -368,6 +377,7 @@ class ScreenShareService : Service() {
                     code: Int,
                     reason: String
                 ) {
+                    socketConnecting = false
                     socketOpen = false
                 }
             }
@@ -375,6 +385,7 @@ class ScreenShareService : Service() {
     }
 
     private fun closeSocket() {
+        socketConnecting = false
         socketOpen = false
         webSocket?.close(1000, "session_changed")
         webSocket = null
