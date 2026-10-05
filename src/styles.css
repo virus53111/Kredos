@@ -755,6 +755,14 @@ a {
 }
 
 
+.finance-page .payment-panel {
+  max-width: 860px;
+}
+
+.finance-stats {
+  margin-bottom: 18px;
+}
+
 .payment-panel {
   overflow: hidden;
 }
