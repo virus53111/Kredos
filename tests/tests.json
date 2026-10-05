@@ -327,5 +327,98 @@
       "Return to Dashboard and tap Make available"
     ],
     "expected": "The phone remains connected but cannot be newly rented while paused, then becomes rentable again when resumed."
+  },
+  {
+    "name": "Renter tops up USD balance with SOL from Solflare",
+    "viewport": "mobile",
+    "covers": [
+      "GET /api/payments/account",
+      "POST /api/payments/wallet",
+      "POST /api/payments/deposits",
+      "POST /api/payments/deposits/:id/confirm",
+      "Solflare wallet connection",
+      "finalized Solana transfer verification"
+    ],
+    "setup": [
+      "Sign in as a renter",
+      "Use a funded Solflare wallet on Solana mainnet"
+    ],
+    "description": "Verifies a SOL payment goes directly to the PhoneBridge treasury and credits the internal USD balance only after on-chain verification.",
+    "steps": [
+      "Connect Solflare",
+      "Choose a USD top-up amount",
+      "Approve the SOL transfer in Solflare",
+      "Wait for confirmation"
+    ],
+    "expected": "The treasury receives SOL and the renter USD balance increases exactly once."
+  },
+  {
+    "name": "Paid rental consumes renter balance and credits host earnings",
+    "viewport": "mobile",
+    "covers": [
+      "prepaid rental balance guard",
+      "POST /api/rentals/start",
+      "POST /api/rentals/:id/end",
+      "rental settlement ledger",
+      "host earnings balance",
+      "Render reservation expiry"
+    ],
+    "setup": [
+      "Have an online rentable phone owned by another user",
+      "Fund the renter balance with at least $1"
+    ],
+    "description": "Verifies paid sessions are limited by available prepaid balance and settle the 50 percent host share.",
+    "steps": [
+      "Start a rental",
+      "Use the phone briefly",
+      "End the rental",
+      "Open renter and host balances"
+    ],
+    "expected": "The renter is charged for elapsed time and half of the charge is added to the host withdrawable balance."
+  },
+  {
+    "name": "Host submits a manual SOL withdrawal request",
+    "viewport": "mobile",
+    "covers": [
+      "GET /api/payments/withdrawals",
+      "POST /api/payments/withdrawals",
+      "host balance reservation",
+      "Solana payout address"
+    ],
+    "setup": [
+      "Sign in as a host with withdrawable earnings",
+      "Connect a Solflare wallet"
+    ],
+    "description": "Verifies a host can reserve part of earnings for a manual SOL payout without exposing any treasury private key.",
+    "steps": [
+      "Enter a withdrawal amount",
+      "Submit the request"
+    ],
+    "expected": "A pending withdrawal request is created with the host wallet address and the requested USD value is removed from available host earnings."
+  },
+  {
+    "name": "Treasury wallet unlocks admin payout queue and verifies manual payout",
+    "viewport": "desktop",
+    "covers": [
+      "POST /api/payments/admin/challenge",
+      "POST /api/payments/admin/verify",
+      "GET /api/payments/admin/withdrawals",
+      "POST /api/payments/admin/withdrawals/:id/paid",
+      "POST /api/payments/admin/withdrawals/:id/reject",
+      "treasury Solflare message signature",
+      "outgoing Solana transfer verification"
+    ],
+    "setup": [
+      "Have at least one pending host withdrawal",
+      "Connect the PhoneBridge treasury Solflare wallet"
+    ],
+    "description": "Verifies only the treasury wallet holder can see and process the manual payout queue.",
+    "steps": [
+      "Unlock admin payouts by signing the challenge",
+      "Copy the host wallet and send SOL manually",
+      "Paste the finalized transaction signature and SOL amount",
+      "Mark the request paid"
+    ],
+    "expected": "The server verifies the treasury signature and outgoing Solana transfer before changing the withdrawal status to paid."
   }
 ]
