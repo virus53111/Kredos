@@ -763,6 +763,16 @@ a {
   margin-top: 10px;
 }
 
+.wallet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wallet-actions .btn {
+  flex: 1 1 190px;
+}
+
 .payment-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
