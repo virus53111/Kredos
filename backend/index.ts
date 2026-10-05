@@ -61,6 +61,17 @@ interface AgentStatus {
   agentInfo?: AgentInfo | null;
   busy?: boolean;
   sessionId?: string | null;
+  offlineForSeconds?: number;
+}
+
+interface RentalLock {
+  catalogId: string;
+  renterId: string;
+  rentalId: string;
+  renderSessionId: string;
+  ownerDeviceId: string;
+  expiresAt: string;
+  createdAt: string;
 }
 
 interface RentalSession {
@@ -82,10 +93,14 @@ interface RentalSession {
   selfTest: boolean;
   expiresAt?: string;
   settled?: boolean;
+  endedReason?: string;
 }
 
 const AGENT_API = 'https://phonebridge-agent-api.onrender.com';
 const CATALOG_TABLE = 'catalog_devices';
+const RENTAL_LOCK_TABLE = 'rental_locks';
+const OFFLINE_END_SECONDS = 300;
+const OFFLINE_BILLING_GRACE_SECONDS = 120;
 const profileTable = (userId: string) => 'profiles_' + userId;
 const deviceTable = (userId: string) => 'devices_' + userId;
 const rentalTable = (userId: string) => 'rentals_' + userId;
@@ -116,14 +131,26 @@ async function agentRequest<T>(
   path: string,
   body: Record<string, unknown>
 ): Promise<T> {
-  const response = await fetch(AGENT_API + path, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      accept: 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    4_000
+  );
+
+  let response: Response;
+  try {
+    response = await fetch(AGENT_API + path, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const text = await response.text();
   let data: unknown = {};
@@ -169,18 +196,21 @@ function safeOwnedDevice(
 
 function safeCatalogDevice(
   item: CatalogDevice & { id: string },
-  status: AgentStatus
+  status: AgentStatus,
+  durableBusy = false
 ) {
   const { bridgeKey: _bridgeKey, ownerId: _ownerId, ...safe } = item;
+  const busy = Boolean(status.busy) || durableBusy;
+
   return {
     ...safe,
     connectionStatus: status.connectionStatus,
     lastSeenAt: status.lastSeenAt || null,
-    busy: Boolean(status.busy),
+    busy,
     hostAvailable: item.acceptingRentals !== false,
     available:
       status.connectionStatus === 'online' &&
-      !status.busy &&
+      !busy &&
       item.acceptingRentals !== false,
   };
 }
@@ -237,10 +267,138 @@ async function ensureCatalogDevice(
   return next;
 }
 
-async function finishRental(
+async function listActiveRentalLocks(): Promise<
+  Array<RentalLock & { id: string }>
+> {
+  const { items } = await db.list<RentalLock>(
+    RENTAL_LOCK_TABLE,
+    { limit: 200 }
+  );
+
+  const now = Date.now();
+  const active: Array<RentalLock & { id: string }> = [];
+  const expiredIds: string[] = [];
+
+  for (const item of items) {
+    if (
+      !item.expiresAt ||
+      Date.parse(item.expiresAt) <= now
+    ) {
+      expiredIds.push(item.id);
+    } else {
+      active.push(item);
+    }
+  }
+
+  if (expiredIds.length) {
+    try {
+      await db.delete(
+        RENTAL_LOCK_TABLE,
+        expiredIds
+      );
+    } catch {
+      // Expired locks are harmless; cleanup retries later.
+    }
+  }
+
+  return active;
+}
+
+async function getActiveRentalLock(
+  catalogId: string
+): Promise<(RentalLock & { id: string }) | null> {
+  const locks = await listActiveRentalLocks();
+  return (
+    locks.find(
+      lock => lock.catalogId === catalogId
+    ) || null
+  );
+}
+
+async function ensureRentalLock(
   renterId: string,
   rentalId: string,
   session: RentalSession
+): Promise<void> {
+  const existing = await getActiveRentalLock(
+    session.catalogId
+  );
+
+  if (
+    existing &&
+    existing.rentalId === rentalId
+  ) {
+    return;
+  }
+
+  if (existing) {
+    throw new Error('device_busy');
+  }
+
+  const [lockId] = await db.add(
+    RENTAL_LOCK_TABLE,
+    [
+      {
+        catalogId: session.catalogId,
+        renterId,
+        rentalId,
+        renderSessionId:
+          session.renderSessionId,
+        ownerDeviceId:
+          session.ownerDeviceId,
+        expiresAt:
+          session.expiresAt ||
+          new Date(
+            Date.now() + 24 * 60 * 60_000
+          ).toISOString(),
+        createdAt:
+          new Date().toISOString(),
+      },
+    ]
+  );
+
+  if (!lockId) {
+    throw new Error('rental_lock_failed');
+  }
+}
+
+async function releaseRentalLock(
+  rentalId: string,
+  catalogId: string
+): Promise<void> {
+  const { items } = await db.list<RentalLock>(
+    RENTAL_LOCK_TABLE,
+    { limit: 200 }
+  );
+
+  const ids = items
+    .filter(
+      item =>
+        item.rentalId === rentalId ||
+        (
+          item.catalogId === catalogId &&
+          Date.parse(item.expiresAt) <= Date.now()
+        )
+    )
+    .map(item => item.id);
+
+  if (ids.length) {
+    try {
+      await db.delete(RENTAL_LOCK_TABLE, ids);
+    } catch {
+      // A stale lock is cleaned up by listActiveRentalLocks later.
+    }
+  }
+}
+
+async function finishRental(
+  renterId: string,
+  rentalId: string,
+  session: RentalSession,
+  options?: {
+    effectiveEndAt?: string;
+    reason?: string;
+  }
 ): Promise<RentalSession> {
   if (
     session.status === 'ended' &&
@@ -271,10 +429,22 @@ async function finishRental(
   const expiry = session.expiresAt
     ? Date.parse(session.expiresAt)
     : now;
-  const effectiveEnd =
-    session.expiresAt
-      ? Math.min(now, expiry)
+  const requestedEnd =
+    options?.effectiveEndAt
+      ? Date.parse(options.effectiveEndAt)
       : now;
+  const safeRequestedEnd =
+    Number.isFinite(requestedEnd)
+      ? requestedEnd
+      : now;
+  const effectiveEnd = Math.max(
+    Date.parse(session.startedAt),
+    Math.min(
+      now,
+      expiry,
+      safeRequestedEnd
+    )
+  );
   const endedAt =
     new Date(effectiveEnd).toISOString();
 
@@ -322,6 +492,10 @@ async function finishRental(
     totalAmount,
     hostAmount,
     settled: true,
+    endedReason:
+      options?.reason ||
+      session.endedReason ||
+      'ended_by_user',
   };
 
   const [ok] = await db.update(
@@ -338,7 +512,154 @@ async function finishRental(
     throw new Error('rental_end_failed');
   }
 
+  await releaseRentalLock(
+    rentalId,
+    session.catalogId
+  );
+
   return updated;
+}
+
+async function reconcileRental(
+  renterId: string,
+  rentalId: string,
+  session: RentalSession
+): Promise<RentalSession> {
+  if (session.status !== 'active') {
+    return session;
+  }
+
+  if (
+    session.expiresAt &&
+    Date.now() >= Date.parse(session.expiresAt)
+  ) {
+    return finishRental(
+      renterId,
+      rentalId,
+      session,
+      {
+        effectiveEndAt: session.expiresAt,
+        reason: 'balance_or_time_expired',
+      }
+    );
+  }
+
+  const [catalogItem] =
+    await db.get<CatalogDevice>(
+      CATALOG_TABLE,
+      [session.catalogId]
+    );
+
+  if (!catalogItem) {
+    return finishRental(
+      renterId,
+      rentalId,
+      session,
+      { reason: 'device_removed' }
+    );
+  }
+
+  try {
+    await ensureRentalLock(
+      renterId,
+      rentalId,
+      session
+    );
+  } catch (lockError) {
+    if (
+      lockError instanceof Error &&
+      lockError.message === 'device_busy'
+    ) {
+      return finishRental(
+        renterId,
+        rentalId,
+        session,
+        { reason: 'session_conflict' }
+      );
+    }
+  }
+
+  let status: AgentStatus;
+  try {
+    status = await agentRequest<AgentStatus>(
+      '/status',
+      {
+        deviceId: session.ownerDeviceId,
+        deviceKey: catalogItem.bridgeKey,
+      }
+    );
+  } catch {
+    return session;
+  }
+
+  if (
+    status.connectionStatus === 'offline' &&
+    Number(status.offlineForSeconds || 0) >=
+      OFFLINE_END_SECONDS
+  ) {
+    const lastSeen = status.lastSeenAt
+      ? Date.parse(status.lastSeenAt)
+      : Date.now();
+    const billUntil = new Date(
+      Math.min(
+        Date.now(),
+        lastSeen +
+          OFFLINE_BILLING_GRACE_SECONDS *
+            1000
+      )
+    ).toISOString();
+
+    return finishRental(
+      renterId,
+      rentalId,
+      session,
+      {
+        effectiveEndAt: billUntil,
+        reason: 'device_offline',
+      }
+    );
+  }
+
+  if (
+    status.connectionStatus === 'online' &&
+    (
+      !status.busy ||
+      !status.sessionId
+    )
+  ) {
+    try {
+      await agentRequest('/restore', {
+        deviceId: session.ownerDeviceId,
+        deviceKey: catalogItem.bridgeKey,
+        renterId,
+        sessionId:
+          session.renderSessionId,
+        viewerToken:
+          session.viewerToken,
+        startedAt:
+          session.startedAt,
+        expiresAt:
+          session.expiresAt,
+      });
+    } catch {
+      // The next active-session poll retries restoration.
+    }
+  } else if (
+    status.connectionStatus === 'online' &&
+    status.busy &&
+    status.sessionId &&
+    status.sessionId !==
+      session.renderSessionId
+  ) {
+    return finishRental(
+      renterId,
+      rentalId,
+      session,
+      { reason: 'session_conflict' }
+    );
+  }
+
+  return session;
 }
 
 export const handler = router({
@@ -352,6 +673,12 @@ export const handler = router({
         limit: 100,
       });
 
+      const activeLocks =
+        await listActiveRentalLocks();
+      const busyCatalogIds = new Set(
+        activeLocks.map(lock => lock.catalogId)
+      );
+
       const catalog = await Promise.all(
         items.map(async item => {
           try {
@@ -359,12 +686,20 @@ export const handler = router({
               deviceId: item.ownerDeviceId,
               deviceKey: item.bridgeKey,
             });
-            return safeCatalogDevice(item, status);
+            return safeCatalogDevice(
+              item,
+              status,
+              busyCatalogIds.has(item.id)
+            );
           } catch {
-            return safeCatalogDevice(item, {
-              connectionStatus: 'offline',
-              lastSeenAt: null,
-            });
+            return safeCatalogDevice(
+              item,
+              {
+                connectionStatus: 'offline',
+                lastSeenAt: null,
+              },
+              busyCatalogIds.has(item.id)
+            );
           }
         })
       );
@@ -452,6 +787,12 @@ export const handler = router({
         );
       }
 
+      const durableLock =
+        await getActiveRentalLock(catalogId);
+      if (durableLock) {
+        return error('device_busy', 409);
+      }
+
       let status: AgentStatus;
       try {
         status = await agentRequest<AgentStatus>('/status', {
@@ -521,9 +862,36 @@ export const handler = router({
             sessionId: reservation.sessionId,
           });
         } catch {
-          // Reservation will be cleared by a later retry or service restart.
+          // Reservation expires automatically.
         }
         return error('rental_create_failed', 500);
+      }
+
+      try {
+        await ensureRentalLock(
+          ctx.user!.userId,
+          id,
+          record
+        );
+      } catch {
+        try {
+          await agentRequest('/release', {
+            deviceId: item.ownerDeviceId,
+            deviceKey: item.bridgeKey,
+            sessionId: reservation.sessionId,
+          });
+        } catch {
+          // Reservation expires automatically.
+        }
+        try {
+          await db.delete(
+            rentalTable(ctx.user!.userId),
+            [id]
+          );
+        } catch {
+          // A failed session record is harmless without its lock.
+        }
+        return error('rental_lock_failed', 500);
       }
 
       return json({
@@ -552,35 +920,25 @@ export const handler = router({
             Date.parse(a.startedAt)
         );
 
+      const sessions: Array<
+        RentalSession & { id: string }
+      > = [];
+
       for (const session of active) {
-        if (
-          session.expiresAt &&
-          Date.now() >=
-            Date.parse(session.expiresAt)
-        ) {
-          await finishRental(
+        const reconciled =
+          await reconcileRental(
             ctx.user!.userId,
             session.id,
             session
           );
+
+        if (reconciled.status === 'active') {
+          sessions.push({
+            id: session.id,
+            ...reconciled,
+          });
         }
       }
-
-      const { items: refreshed } =
-        await db.list<RentalSession>(
-          rentalTable(ctx.user!.userId),
-          { limit: 50 }
-        );
-
-      const sessions = refreshed
-        .filter(
-          item => item.status === 'active'
-        )
-        .sort(
-          (a, b) =>
-            Date.parse(b.startedAt) -
-            Date.parse(a.startedAt)
-        );
 
       return json({ sessions });
     },
