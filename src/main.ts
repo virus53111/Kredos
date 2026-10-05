@@ -4,7 +4,7 @@ import { bindRemoteTouch } from './remote-control';
 
 
 type Role = 'renter' | 'host';
-type View = 'home' | 'dashboard' | 'catalog' | 'session';
+type View = 'home' | 'dashboard' | 'catalog' | 'session' | 'admin';
 
 type Profile = {
   role: Role;
@@ -228,6 +228,11 @@ const words: Record<string, Record<string, string>> = {
     payoutWallet: 'Кошелёк для вывода',
     withdrawalPending: 'Заявка на вывод отправлена',
     withdrawalHistory: 'Заявки на вывод',
+    admin: 'Админ',
+    adminTitle: 'Админ-панель',
+    adminSubtitle: 'Заявки владельцев на ручной вывод SOL',
+    adminOnly: 'Доступ разрешён только администратору.',
+    adminTreasury: 'Кошелёк PhoneBridge',
     adminPayments: 'Выплаты владельцам',
     adminUnlock: 'Открыть админ-панель через главный Solflare',
     adminHelp: 'Для доступа подпиши сообщение кошельком PhoneBridge. Приватный ключ сайту не передаётся.',
@@ -344,6 +349,11 @@ const words: Record<string, Record<string, string>> = {
     payoutWallet: 'Payout wallet',
     withdrawalPending: 'Withdrawal request submitted',
     withdrawalHistory: 'Withdrawal requests',
+    admin: 'Admin',
+    adminTitle: 'Admin panel',
+    adminSubtitle: 'Host requests for manual SOL payouts',
+    adminOnly: 'Administrator access only.',
+    adminTreasury: 'PhoneBridge treasury',
     adminPayments: 'Host payouts',
     adminUnlock: 'Open admin panel with treasury Solflare',
     adminHelp: 'Sign a message with the PhoneBridge treasury wallet. The private key never leaves Solflare.',
@@ -779,6 +789,11 @@ function header(): string {
           <button class="btn ghost small" data-action="dashboard">
             ${t('dashboard')}
           </button>
+          ${adminEnabled ? `
+            <button class="btn primary small" data-action="admin">
+              ${t('admin')}
+            </button>
+          ` : ''}
           <span class="user-email">${esc(user.email || '')}</span>
           <button class="btn ghost small" data-action="signout">
             ${t('signOut')}
@@ -1157,7 +1172,6 @@ function dashboard(): string {
         </div>
       </section>
 
-      ${adminPaymentPanel()}
     </main>
   `;
 }
@@ -1390,26 +1404,18 @@ function hostPayoutPanel(): string {
 }
 
 function adminPaymentPanel(): string {
-  if (!user || !adminEnabled) return '';
-
   if (!adminEnabled) {
     return `
-      <section class="panel payment-panel" style="margin-top:16px">
-        <h2>${t('adminPayments')}</h2>
-        <p class="payment-help">${t('adminHelp')}</p>
-        <button
-          class="btn ghost"
-          data-action="admin-unlock"
-          type="button"
-        >
-          ${t('adminUnlock')}
-        </button>
+      <section class="panel">
+        <div class="empty">
+          <span>${t('adminOnly')}</span>
+        </div>
       </section>
     `;
   }
 
   return `
-    <section class="panel payment-panel" style="margin-top:16px">
+    <section class="panel payment-panel">
       <h2>${t('adminPayments')}</h2>
       ${adminWithdrawals.length
         ? adminWithdrawals.map(item => `
@@ -1418,8 +1424,11 @@ function adminPaymentPanel(): string {
               <span>$${Number(item.usdAmount).toFixed(2)}</span>
               <b>≈ ${Number(item.quotedSol).toFixed(6)} SOL</b>
             </div>
-            <div class="wallet-note">
-              ${esc(item.walletAddress)}
+            <div class="row">
+              <span>${esc(item.email || '—')}</span>
+              <b class="wallet-address">
+                ${esc(item.walletAddress)}
+              </b>
             </div>
             <div class="admin-withdraw-actions">
               <button
@@ -1469,6 +1478,58 @@ function adminPaymentPanel(): string {
           </div>
         `}
     </section>
+  `;
+}
+
+function adminView(): string {
+  if (!user || !adminEnabled) {
+    return `
+      ${header()}
+      <main class="dashboard shell">
+        <div class="notice">${t('adminOnly')}</div>
+      </main>
+    `;
+  }
+
+  return `
+    ${header()}
+    <main class="dashboard shell admin-page">
+      <div class="dash-head">
+        <div>
+          <div class="eyebrow">PHONEBRIDGE ADMIN</div>
+          <h1>${t('adminTitle')}</h1>
+          <p>${t('adminSubtitle')}</p>
+        </div>
+        <button
+          class="btn ghost"
+          data-action="dashboard"
+          type="button"
+        >
+          ${t('dashboard')}
+        </button>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <small>${t('adminPayments')}</small>
+          <strong>${adminWithdrawals.length}</strong>
+        </div>
+        <div class="stat">
+          <small>${t('adminTreasury')}</small>
+          <strong style="font-size:14px;word-break:break-all">
+            ${esc(treasuryWallet || '—')}
+          </strong>
+        </div>
+        <div class="stat">
+          <small>Admin</small>
+          <strong style="font-size:16px">
+            ${esc(user.email || '')}
+          </strong>
+        </div>
+      </div>
+
+      ${adminPaymentPanel()}
+    </main>
   `;
 }
 
@@ -1693,6 +1754,13 @@ function render(): void {
 
   if (currentView === 'session' && activeSession) {
     root.innerHTML = sessionView();
+  } else if (currentView === 'admin') {
+    if (user && adminEnabled) {
+      root.innerHTML = adminView();
+    } else {
+      currentView = user ? 'dashboard' : 'home';
+      root.innerHTML = user ? dashboard() : landing();
+    }
   } else if (currentView === 'catalog') {
     root.innerHTML = catalogView();
   } else if (currentView === 'home') {
@@ -1735,6 +1803,24 @@ function bind(): void {
 
       if (action === 'catalog') {
         await openCatalog();
+      }
+
+      if (action === 'admin') {
+        if (!user) {
+          await start(null);
+          return;
+        }
+
+        await loadPayments();
+        if (!adminEnabled) {
+          currentView = 'dashboard';
+          render();
+          return;
+        }
+
+        currentView = 'admin';
+        startRefresh();
+        render();
       }
 
       if (action === 'dashboard') {
@@ -2545,6 +2631,13 @@ function startRefresh(): void {
   refreshTimer = window.setInterval(async () => {
     try {
       if (
+        currentView === 'admin' &&
+        user &&
+        adminEnabled
+      ) {
+        await loadPayments();
+        render();
+      } else if (
         currentView === 'dashboard' &&
         user &&
         profile?.role === 'host'
