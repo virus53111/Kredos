@@ -662,6 +662,65 @@ async function reconcileRental(
   return session;
 }
 
+export const reconcileRentalsCron = async (
+  _event: {
+    type: 'cron';
+    name: string;
+    invocationId: string;
+    scheduledTime: string;
+    invokedTime: string;
+  }
+) => {
+  try {
+    const locks = await listActiveRentalLocks();
+
+    for (const lock of locks) {
+      try {
+        const [session] =
+          await db.get<RentalSession>(
+            rentalTable(lock.renterId),
+            [lock.rentalId]
+          );
+
+        if (!session) {
+          await releaseRentalLock(
+            lock.rentalId,
+            lock.catalogId
+          );
+          continue;
+        }
+
+        if (session.status !== 'active') {
+          await releaseRentalLock(
+            lock.rentalId,
+            lock.catalogId
+          );
+          continue;
+        }
+
+        await reconcileRental(
+          lock.renterId,
+          lock.rentalId,
+          session
+        );
+      } catch (error) {
+        console.error(
+          'rental_cron_item_failed',
+          lock.rentalId,
+          error
+        );
+      }
+    }
+  } catch (error) {
+    console.error(
+      'rental_cron_failed',
+      error
+    );
+  }
+
+  return { statusCode: 200 };
+};
+
 export const handler = router({
   ...paymentRoutes,
 
