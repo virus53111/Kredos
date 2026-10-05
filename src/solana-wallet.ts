@@ -16,14 +16,49 @@ let wallet: Solflare | null = null;
 
 function getWallet(): Solflare {
   if (!wallet) {
-    wallet = new Solflare();
+    wallet = new Solflare({
+      network: 'mainnet-beta',
+    });
   }
   return wallet;
 }
 
+export function openSolflareApp(): void {
+  const currentUrl = encodeURIComponent(
+    window.location.href
+  );
+  const ref = encodeURIComponent(
+    window.location.origin
+  );
+
+  window.location.href =
+    'https://solflare.com/ul/v1/browse/' +
+    currentUrl +
+    '?ref=' +
+    ref;
+}
+
 export async function connectSolflare(): Promise<string> {
   const current = getWallet();
-  await current.connect();
+
+  let timeoutId = 0;
+  try {
+    await Promise.race([
+      current.connect(),
+      new Promise<never>((_resolve, reject) => {
+        timeoutId = window.setTimeout(
+          () => reject(
+            new Error('solflare_connect_timeout')
+          ),
+          25_000
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+    }
+  }
 
   if (!current.publicKey) {
     throw new Error('wallet_not_connected');
