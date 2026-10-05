@@ -24,6 +24,7 @@ type Device = {
   lastSeenAt?: string;
   pairedAt?: string;
   acceptingRentals?: boolean;
+  busy?: boolean;
 };
 
 type CatalogDevice = {
@@ -107,6 +108,17 @@ type AdminWithdrawal = {
   usdAmount: number;
   quotedSol: number;
   createdAt: string;
+};
+
+type MoneyHistoryItem = {
+  id: string;
+  type: string;
+  amountUsd: number;
+  balanceKind: 'renter' | 'host';
+  direction: 'credit' | 'debit' | 'info';
+  createdAt: string;
+  referenceId?: string | null;
+  note?: string | null;
 };
 
 type PairingInfo = {
@@ -246,7 +258,18 @@ const words: Record<string, Record<string, string>> = {
     copyWallet: 'Копировать адрес',
     noWithdrawals: 'Нет заявок на вывод',
     insufficientBalance: 'Недостаточно баланса для минуты аренды. Пополни баланс.',
-    paymentError: 'Ошибка платежа. Проверь Solflare и попробуй ещё раз.',
+    paymentError: 'Ошибка платежа. Проверь данные и попробуй ещё раз.',
+    moneyHistory: 'История операций',
+    noMoneyHistory: 'Операций пока нет',
+    historyDeposit: 'Пополнение баланса',
+    historyRentalCharge: 'Оплата аренды',
+    historyHostEarning: 'Заработок за аренду',
+    historyWithdrawalRequested: 'Заявка на вывод',
+    historyWithdrawalPaid: 'Вывод выплачен',
+    historyWithdrawalRejected: 'Вывод отклонён — сумма возвращена',
+    stopRentalNow: 'Остановить аренду',
+    stopRentalConfirm: 'Аварийно завершить текущую аренду этого телефона?',
+    rentalStopped: 'Аренда остановлена',
     openSolflare: 'Открыть в Solflare',
     walletConnectHelp: 'Если Solflare не открылся, нажми «Открыть в Solflare» — сайт откроется внутри приложения кошелька.',
   },
@@ -370,7 +393,18 @@ const words: Record<string, Record<string, string>> = {
     copyWallet: 'Copy address',
     noWithdrawals: 'No withdrawal requests',
     insufficientBalance: 'Insufficient balance for one minute of rental. Add funds.',
-    paymentError: 'Payment error. Check Solflare and try again.',
+    paymentError: 'Payment error. Check the details and try again.',
+    moneyHistory: 'Transaction history',
+    noMoneyHistory: 'No transactions yet',
+    historyDeposit: 'Balance deposit',
+    historyRentalCharge: 'Rental charge',
+    historyHostEarning: 'Rental earnings',
+    historyWithdrawalRequested: 'Withdrawal requested',
+    historyWithdrawalPaid: 'Withdrawal paid',
+    historyWithdrawalRejected: 'Withdrawal rejected — funds returned',
+    stopRentalNow: 'Stop rental',
+    stopRentalConfirm: 'Emergency-stop the current rental on this phone?',
+    rentalStopped: 'Rental stopped',
     openSolflare: 'Open in Solflare',
     walletConnectHelp: 'If Solflare does not open, use “Open in Solflare” to open PhoneBridge inside the wallet app.',
   },
@@ -736,6 +770,7 @@ let treasuryWallet = '';
 let depositQuote: DepositQuote | null = null;
 let myDeposits: DepositHistory[] = [];
 let myWithdrawals: WithdrawalRequest[] = [];
+let moneyHistory: MoneyHistoryItem[] = [];
 let adminWithdrawals: AdminWithdrawal[] = [];
 let adminEnabled = false;
 let paymentMessage = '';
@@ -1406,6 +1441,81 @@ function hostPayoutPanel(): string {
   `;
 }
 
+function moneyHistoryTitle(
+  type: string
+): string {
+  const keys: Record<string, string> = {
+    deposit: 'historyDeposit',
+    rental_charge: 'historyRentalCharge',
+    host_earning: 'historyHostEarning',
+    withdrawal_requested:
+      'historyWithdrawalRequested',
+    withdrawal_paid:
+      'historyWithdrawalPaid',
+    withdrawal_rejected:
+      'historyWithdrawalRejected',
+  };
+
+  return t(keys[type] || type);
+}
+
+function moneyHistoryHtml(): string {
+  if (!moneyHistory.length) {
+    return `
+      <section class="panel payment-panel">
+        <h2>${t('moneyHistory')}</h2>
+        <div class="empty">
+          <span>${t('noMoneyHistory')}</span>
+        </div>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="panel payment-panel">
+      <h2>${t('moneyHistory')}</h2>
+      <div class="money-history">
+        ${moneyHistory.map(item => {
+          const sign =
+            item.direction === 'credit'
+              ? '+'
+              : item.direction === 'debit'
+                ? '−'
+                : '';
+          const amountClass =
+            item.direction === 'credit'
+              ? 'credit'
+              : item.direction === 'debit'
+                ? 'debit'
+                : 'info';
+
+          return `
+            <div class="money-history-item">
+              <div>
+                <b>${esc(
+                  moneyHistoryTitle(item.type)
+                )}</b>
+                <small>
+                  ${esc(
+                    new Date(
+                      item.createdAt
+                    ).toLocaleString()
+                  )}
+                </small>
+              </div>
+              <strong class="${amountClass}">
+                ${sign}$${Number(
+                  item.amountUsd || 0
+                ).toFixed(2)}
+              </strong>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  `;
+}
+
 function financeView(): string {
   if (!user || !profile) {
     return landing();
@@ -1457,6 +1567,9 @@ function financeView(): string {
       ${isHost
         ? hostPayoutPanel()
         : renterPaymentPanel()}
+
+      <div style="height:16px"></div>
+      ${moneyHistoryHtml()}
     </main>
   `;
 }
@@ -1743,6 +1856,16 @@ function deviceList(): string {
                   : t('stopListing')}
               </button>
 
+              ${device.busy ? `
+                <button
+                  class="btn danger small"
+                  data-action="stop-device-rental"
+                  data-device-id="${esc(device.id)}"
+                >
+                  ${t('stopRentalNow')}
+                </button>
+              ` : ''}
+
               <button
                 class="btn secondary small"
                 data-action="pair-device"
@@ -1940,6 +2063,7 @@ function bind(): void {
         depositQuote = null;
         myDeposits = [];
         myWithdrawals = [];
+        moneyHistory = [];
         adminWithdrawals = [];
         adminEnabled = false;
         paymentMessage = '';
@@ -2018,6 +2142,39 @@ function bind(): void {
 
       if (action === 'pair-device' && element.dataset.deviceId) {
         await createPairing(element.dataset.deviceId);
+      }
+
+      if (
+        action === 'stop-device-rental' &&
+        element.dataset.deviceId
+      ) {
+        const deviceId =
+          element.dataset.deviceId;
+
+        if (
+          window.confirm(
+            t('stopRentalConfirm')
+          )
+        ) {
+          try {
+            await api.post(
+              '/api/devices/' +
+                encodeURIComponent(deviceId) +
+                '/stop-rental',
+              {}
+            );
+            message = t('rentalStopped');
+            await Promise.all([
+              loadDevices(),
+              loadPayments('summary'),
+            ]);
+            render();
+          } catch (error) {
+            console.error(error);
+            message = t('error');
+            render();
+          }
+        }
       }
 
       if (action === 'toggle-availability' && element.dataset.deviceId) {
@@ -2229,6 +2386,7 @@ async function loadPayments(
       adminResponse,
       depositsResponse,
       withdrawalsResponse,
+      historyResponse,
     ] = await Promise.all([
       api.get('/api/payments/account'),
       api.get('/api/payments/admin/status'),
@@ -2241,6 +2399,11 @@ async function loadPayments(
         ? api.get('/api/payments/withdrawals')
         : Promise.resolve({
             data: { withdrawals: myWithdrawals },
+          }),
+      mode === 'finance'
+        ? api.get('/api/payments/history')
+        : Promise.resolve({
+            data: { history: moneyHistory },
           }),
     ]);
 
@@ -2257,6 +2420,8 @@ async function loadPayments(
         depositsResponse.data.deposits || [];
       myWithdrawals =
         withdrawalsResponse.data.withdrawals || [];
+      moneyHistory =
+        historyResponse.data.history || [];
     }
   } catch (error) {
     console.error(error);
