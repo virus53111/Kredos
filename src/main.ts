@@ -22,6 +22,7 @@ type Device = {
   connectionStatus: 'pending' | 'online' | 'offline';
   lastSeenAt?: string;
   pairedAt?: string;
+  acceptingRentals?: boolean;
 };
 
 type CatalogDevice = {
@@ -37,6 +38,7 @@ type CatalogDevice = {
   lastSeenAt?: string | null;
   available: boolean;
   busy?: boolean;
+  hostAvailable?: boolean;
 };
 
 type RentalSession = {
@@ -156,6 +158,12 @@ const words: Record<string, Record<string, string>> = {
     remoteBack: 'Назад',
     remoteHome: 'Домой',
     controlHint: 'Нажимай и свайпай прямо по экрану телефона',
+    remoteText: 'Ввод текста',
+    remoteTextHint: 'Сначала нажми поле ввода на удалённом телефоне',
+    sendText: 'Отправить',
+    makeAvailable: 'Сделать доступным',
+    stopListing: 'Не сдавать',
+    notAvailable: 'Не сдаётся',
   },
   en: {
     signIn: 'Sign in',
@@ -236,6 +244,12 @@ const words: Record<string, Record<string, string>> = {
     remoteBack: 'Back',
     remoteHome: 'Home',
     controlHint: 'Tap and swipe directly on the phone screen',
+    remoteText: 'Text input',
+    remoteTextHint: 'Tap an input field on the remote phone first',
+    sendText: 'Send',
+    makeAvailable: 'Make available',
+    stopListing: 'Stop renting',
+    notAvailable: 'Not for rent',
   },
   lv: {
     signIn: 'Ieiet',
@@ -314,6 +328,12 @@ const words: Record<string, Record<string, string>> = {
     remoteBack: 'Atpakaļ',
     remoteHome: 'Sākums',
     controlHint: 'Spied un velc tieši pa tālruņa ekrānu',
+    remoteText: 'Teksta ievade',
+    remoteTextHint: 'Vispirms nospied ievades lauku attālajā tālrunī',
+    sendText: 'Nosūtīt',
+    makeAvailable: 'Padarīt pieejamu',
+    stopListing: 'Neiznomāt',
+    notAvailable: 'Nav iznomājams',
   },
   et: {
     signIn: 'Logi sisse',
@@ -392,6 +412,12 @@ const words: Record<string, Record<string, string>> = {
     remoteBack: 'Tagasi',
     remoteHome: 'Avaleht',
     controlHint: 'Puuduta ja libista otse telefoni ekraanil',
+    remoteText: 'Teksti sisestus',
+    remoteTextHint: 'Puuduta esmalt kaugtelefoni sisestusvälja',
+    sendText: 'Saada',
+    makeAvailable: 'Tee saadavaks',
+    stopListing: 'Ära rendi',
+    notAvailable: 'Pole renditav',
   },
   lt: {
     signIn: 'Prisijungti',
@@ -470,6 +496,12 @@ const words: Record<string, Record<string, string>> = {
     remoteBack: 'Atgal',
     remoteHome: 'Pradžia',
     controlHint: 'Bakstelėk ir brauk tiesiai telefono ekrane',
+    remoteText: 'Teksto įvedimas',
+    remoteTextHint: 'Pirmiausia paliesk įvedimo lauką nuotoliniame telefone',
+    sendText: 'Siųsti',
+    makeAvailable: 'Padaryti prieinamą',
+    stopListing: 'Nenuomoti',
+    notAvailable: 'Nenuomojamas',
   },
   uk: {
     signIn: 'Увійти',
@@ -548,6 +580,12 @@ const words: Record<string, Record<string, string>> = {
     remoteBack: 'Назад',
     remoteHome: 'Додому',
     controlHint: 'Натискай і свайпай прямо по екрану телефона',
+    remoteText: 'Введення тексту',
+    remoteTextHint: 'Спочатку натисни поле введення на віддаленому телефоні',
+    sendText: 'Надіслати',
+    makeAvailable: 'Зробити доступним',
+    stopListing: 'Не здавати',
+    notAvailable: 'Не здається',
   },
 };
 
@@ -568,6 +606,8 @@ let sessionClockTimer: number | null = null;
 let viewerSocket: WebSocket | null = null;
 let viewerSessionId: string | null = null;
 let lastFrameUrl: string | null = null;
+let viewerReconnectTimer: number | null = null;
+let viewerReconnectAttempt = 0;
 
 let phoneDraft: PhoneDraft = {
   model: '',
@@ -768,7 +808,8 @@ function catalogCards(preview: boolean): string {
 
 function catalogCard(device: CatalogDevice): string {
   const isOnline = device.connectionStatus === 'online';
-  const canRent = isOnline && !device.busy;
+  const hostAvailable = device.hostAvailable !== false;
+  const canRent = isOnline && !device.busy && hostAvailable;
   const meta = [
     device.androidVersion,
     device.network,
@@ -780,7 +821,11 @@ function catalogCard(device: CatalogDevice): string {
       <div class="card-top">
         <span>${esc(device.country)}</span>
         <span class="${canRent ? 'online' : ''}">
-          ● ${device.busy ? t('busy') : t(device.connectionStatus)}
+          ● ${device.busy
+            ? t('busy')
+            : !hostAvailable
+              ? t('notAvailable')
+              : t(device.connectionStatus)}
         </span>
       </div>
 
@@ -796,7 +841,13 @@ function catalogCard(device: CatalogDevice): string {
           data-device-id="${esc(device.id)}"
           ${canRent ? '' : 'disabled'}
         >
-          ${device.busy ? t('busy') : canRent ? t('rent') : t('offline')}
+          ${device.busy
+            ? t('busy')
+            : !hostAvailable
+              ? t('notAvailable')
+              : canRent
+                ? t('rent')
+                : t('offline')}
         </button>
       </div>
     </article>
@@ -868,6 +919,22 @@ function sessionView(): string {
               ⌂ ${t('remoteHome')}
             </button>
           </div>
+
+          <form class="remote-text-form" id="remote-text-form">
+            <label for="remote-text-input">${t('remoteText')}</label>
+            <div class="remote-text-row">
+              <input
+                class="input"
+                id="remote-text-input"
+                maxlength="500"
+                autocomplete="off"
+                placeholder="${t('remoteTextHint')}"
+              >
+              <button class="btn secondary" type="submit">
+                ${t('sendText')}
+              </button>
+            </div>
+          </form>
         </section>
 
         <aside class="panel session-info">
@@ -1137,6 +1204,17 @@ function deviceList(): string {
               </span>
 
               <button
+                class="btn ${device.acceptingRentals === false ? 'primary' : 'ghost'} small"
+                data-action="toggle-availability"
+                data-device-id="${esc(device.id)}"
+                data-next-available="${device.acceptingRentals === false ? 'true' : 'false'}"
+              >
+                ${device.acceptingRentals === false
+                  ? t('makeAvailable')
+                  : t('stopListing')}
+              </button>
+
+              <button
                 class="btn secondary small"
                 data-action="pair-device"
                 data-device-id="${esc(device.id)}"
@@ -1322,6 +1400,22 @@ function bind(): void {
         await createPairing(element.dataset.deviceId);
       }
 
+      if (action === 'toggle-availability' && element.dataset.deviceId) {
+        const available = element.dataset.nextAvailable === 'true';
+        try {
+          await api.post(
+            '/api/devices/' + encodeURIComponent(element.dataset.deviceId) + '/availability',
+            { available }
+          );
+          await loadDevices();
+          render();
+        } catch (error) {
+          console.error(error);
+          message = t('error');
+          render();
+        }
+      }
+
       if (action === 'copy-pair' && element.dataset.deviceId) {
         const pairing = pairings.get(element.dataset.deviceId);
 
@@ -1403,6 +1497,21 @@ function bind(): void {
     '#remote-stream',
     sendRemoteCommand
   );
+
+  document
+    .querySelector<HTMLFormElement>('#remote-text-form')
+    ?.addEventListener('submit', event => {
+      event.preventDefault();
+      const input = document.querySelector<HTMLInputElement>(
+        '#remote-text-input'
+      );
+      const value = input?.value || '';
+      if (!value) return;
+
+      if (sendRemoteCommand({ type: 'text', text: value })) {
+        if (input) input.value = '';
+      }
+    });
 }
 
 async function start(preferred: Role | null): Promise<void> {
@@ -1599,12 +1708,37 @@ function sendRemoteCommand(
   return true;
 }
 
+function scheduleViewerReconnect(sessionId: string): void {
+  if (
+    viewerReconnectTimer !== null ||
+    currentView !== 'session' ||
+    !activeSession ||
+    activeSession.renderSessionId !== sessionId ||
+    viewerSessionId !== sessionId
+  ) {
+    return;
+  }
+
+  const delay = Math.min(
+    10_000,
+    1_000 * Math.pow(2, Math.min(viewerReconnectAttempt, 3))
+  );
+  viewerReconnectAttempt += 1;
+
+  viewerReconnectTimer = window.setTimeout(() => {
+    viewerReconnectTimer = null;
+    connectViewerSocket();
+  }, delay);
+}
+
 function connectViewerSocket(): void {
   if (!activeSession?.viewerToken) return;
 
+  const sessionId = activeSession.renderSessionId;
+
   if (
     viewerSocket &&
-    viewerSessionId === activeSession.renderSessionId &&
+    viewerSessionId === sessionId &&
     (
       viewerSocket.readyState === WebSocket.OPEN ||
       viewerSocket.readyState === WebSocket.CONNECTING
@@ -1613,17 +1747,33 @@ function connectViewerSocket(): void {
     return;
   }
 
-  stopViewerSocket();
+  if (viewerReconnectTimer !== null) {
+    window.clearTimeout(viewerReconnectTimer);
+    viewerReconnectTimer = null;
+  }
 
-  viewerSessionId = activeSession.renderSessionId;
+  if (viewerSocket) {
+    const previous = viewerSocket;
+    viewerSocket = null;
+    previous.close(1000, 'reconnecting');
+  }
+
+  viewerSessionId = sessionId;
   const token = encodeURIComponent(activeSession.viewerToken);
-  viewerSocket = new WebSocket(
+  const socket = new WebSocket(
     'wss://phonebridge-agent-api.onrender.com/ws' +
       '?role=viewer&token=' + token
   );
-  viewerSocket.binaryType = 'blob';
+  viewerSocket = socket;
+  socket.binaryType = 'blob';
 
-  viewerSocket.onmessage = event => {
+  socket.onopen = () => {
+    if (viewerSocket === socket) {
+      viewerReconnectAttempt = 0;
+    }
+  };
+
+  socket.onmessage = event => {
     if (!(event.data instanceof Blob)) return;
 
     const nextUrl = URL.createObjectURL(event.data);
@@ -1651,21 +1801,31 @@ function connectViewerSocket(): void {
     }
   };
 
-  viewerSocket.onclose = () => {
-    viewerSocket = null;
+  socket.onclose = () => {
+    if (viewerSocket === socket) {
+      viewerSocket = null;
+      scheduleViewerReconnect(sessionId);
+    }
   };
 
-  viewerSocket.onerror = () => {
-    // The UI keeps showing the waiting state and reconnects on render.
+  socket.onerror = () => {
+    // onclose schedules reconnect; the last frame stays visible.
   };
 }
 
 function stopViewerSocket(): void {
-  if (viewerSocket) {
-    viewerSocket.close(1000, 'view_closed');
-    viewerSocket = null;
+  if (viewerReconnectTimer !== null) {
+    window.clearTimeout(viewerReconnectTimer);
+    viewerReconnectTimer = null;
   }
+  viewerReconnectAttempt = 0;
   viewerSessionId = null;
+
+  if (viewerSocket) {
+    const socket = viewerSocket;
+    viewerSocket = null;
+    socket.close(1000, 'view_closed');
+  }
 
   if (lastFrameUrl) {
     URL.revokeObjectURL(lastFrameUrl);
